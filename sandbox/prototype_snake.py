@@ -10,12 +10,15 @@ class Snake:
     """
     Prototype for the snake game
     @author: Adam Ross
-    @date: 20/04/2019
+    @date: 22/04/2019
     """
 
     N = 10  # the size of the snake game environment
-    TAIL_CHANCE = 5  # size of odds snake has chance of growing extra 'blocks'
-    SLEEP_TIME = 2  # seconds that the game is paused between snake moves
+    SLEEP_TIME = 0.5  # seconds that the game is paused between snake moves
+    YELLOW = '\033[93m' + '#' + '\033[0m'
+    PURPLE = '\033[95m' + '#' + '\033[0m'
+    RED = '\033[31m' + '#' + '\033[0m'
+    FOOD = '\033[92m' + '@' + '\033[0m'
 
     def __init__(self, manual=False):
         """
@@ -27,32 +30,67 @@ class Snake:
         self.add_tail()
         self.direction = ""
         self.snake_grew = False
+        self.snake_ate = False
+        self.snake_crashed = False
+        self.food = self.new_food()
         self.manual = manual
+
+    def move_forward(self):
+        """
+        Calculates the next position of snake head when moving forward
+        :return: the next position of the snakes head
+        """
+        self.direction = "Snake continued straight"
+        return [self.snake[0][0] + (self.snake[0][0] - self.snake[1][0]),
+                self.snake[0][1] + (self.snake[0][1] - self.snake[1][1])]
+
+    def move_left(self):
+        """
+        Calculates the next position of snake head when moving left
+        :return: the next position of the snakes head
+        """
+        self.direction = "Snake turned left"
+        return [self.snake[0][0] - (self.snake[0][1] - self.snake[1][1]),
+                self.snake[0][1] + (self.snake[0][0] - self.snake[1][0])]
+
+    def move_right(self):
+        """
+        Calculates the next position of snake head when moving right
+        :return: the next position of the snakes head
+        """
+        self.direction = "Snake turned right"
+        return [self.snake[0][0] + (self.snake[0][1] - self.snake[1][1]),
+                self.snake[0][1] - (self.snake[0][0] - self.snake[1][0])]
+
+    def new_food(self):
+        """
+        Sets a new position for a piece of food for the snake to eat
+        :return: the new food position
+        """
+        new_food_pos = [randint(0, self.N - 1), randint(0, self.N - 1)]
+
+        while new_food_pos in self.snake:
+            new_food_pos = [randint(0, self.N - 1), randint(0, self.N - 1)]
+        return new_food_pos
 
     def move_snake(self, dir):
         """
         Moves snake one space forward, left or right of current head position
         :param dir: the direction the snake is moving; forward, left or right
-        :return: True if the snake moves without crashing, False otherwise
         """
         if dir == 1:  # snake is continuing straight
-            head = [self.snake[0][0] + (self.snake[0][0] - self.snake[1][0]),
-                    self.snake[0][1] + (self.snake[0][1] - self.snake[1][1])]
-            self.direction = "Snake continued straight"
+            head = self.move_forward()
         elif dir == 2:  # snake is turning left
-            head = [self.snake[0][0] - (self.snake[0][1] - self.snake[1][1]),
-                    self.snake[0][1] + (self.snake[0][0] - self.snake[1][0])]
-            self.direction = "Snake turned left"
+            head = self.move_left()
         else:  # snake is turning right
-            head = [self.snake[0][0] + (self.snake[0][1] - self.snake[1][1]),
-                    self.snake[0][1] - (self.snake[0][0] - self.snake[1][0])]
-            self.direction = "Snake turned right"
+            head = self.move_right()
+        tail = self.snake.pop()
 
         if self.not_crashed(head):
-            self.snake.pop()
             self.snake[:0] = [head]
-            return True
-        return False
+        else:
+            self.snake.append(tail)
+            self.snake_crashed = True
 
     def add_tail(self):
         """
@@ -75,7 +113,9 @@ class Snake:
 
         if self.not_crashed(tail):
             self.snake.append(tail)
-            self.snake_grew = True
+        else:
+            self.snake_crashed = True
+        self.snake_grew = True
 
     def not_crashed(self, b):
         """
@@ -89,14 +129,32 @@ class Snake:
         """
         Displays the snake in the snake game environment
         """
+        if self.snake[0] == self.food:
+            self.add_tail()
+            self.food = self.new_food()
+            self.snake_ate = True
+
+        if self.snake_crashed:
+            game = [[' ' if [j, i] not in self.snake else self.RED
+                     for i in range(self.N)] for j in range(self.N)]
+        else:
+            game = [[' ' if [j, i] not in self.snake else self.YELLOW
+                     for i in range(self.N)] for j in range(self.N)]
+            game[self.food[0]][self.food[1]] = self.FOOD
+            game[self.snake[0][0]][self.snake[0][1]] = self.PURPLE
         system('clear')
-        [print([' ' if [j, i] not in self.snake else '#' for i in
-                range(self.N)]) for j in range(self.N)]
+        print('-' * (self.N + 2))
+        [print('|' + "".join([j for j in i]) + '|') for i in game]
+        print('-' * (self.N + 2))
+        print(self.direction)
+
+        if self.snake_ate:
+            print("Snake ate an apple")
+            self.snake_ate = False
 
         if self.snake_grew:
             print("Snake grew an extra block to its tail")
             self.snake_grew = False
-        print(self.direction)
 
     def go(self):
         """
@@ -104,20 +162,20 @@ class Snake:
         """
         self.display_snake()  # displays the snake and the board
 
-        if not randint(0, self.TAIL_CHANCE):
-            self.add_tail()
-
-        if self.manual:
+        if self.manual and not self.snake_crashed:
             move = input("Enter 1 for forward, 2 for left, 3 for right:\n")
 
             while move not in ['1', '2', '3']:
                 move = input("Enter 1 for forward, 2 for left, 3 for right:\n")
-        else:
+            self.move_snake(int(move))
+        elif not self.snake_crashed:
             sleep(self.SLEEP_TIME)  # pauses game between snake moves
-            move = randint(1, 3)
+            self.move_snake(randint(1, 3))
 
-        if self.move_snake(int(move)):  # if snake move without crashing
+        if not self.snake_crashed:  # if snake move without crashing
             self.go()
+        else:
+            self.stop()
 
     def stop(self):
         """
@@ -134,4 +192,3 @@ if __name__ == "__main__":
     else:
         app = Snake()
     app.go()
-    app.stop()
