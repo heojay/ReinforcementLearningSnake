@@ -1,3 +1,7 @@
+# Code based on <Snake Game Python Tutorial> - freeCodeCamp.org
+# https://www.youtube.com/watch?v=CD4qAhfFuLo&t=1926s
+# https://pastebin.com/embed_js/jB6k06hG
+
 import random
 import pygame
 
@@ -16,12 +20,16 @@ class cube(object):
         self.dirny = dirny
         self.pos = (self.pos[0] + self.dirnx, self.pos[1] + self.dirny)
 
+    # All cube has own direction
+    # move to current direction
+
     def draw(self, surface, eyes=False):
         dis = self.w // self.rows
         i = self.pos[0]
         j = self.pos[1]
 
         pygame.draw.rect(surface, self.color, (i * dis + 1, j * dis + 1, dis - 2, dis - 2))
+
         if eyes:
             centre = dis // 2
             radius = 3
@@ -39,8 +47,8 @@ class snake(object):
         self.color = color
         self.head = cube(pos)
         self.body.append(self.head)
-        self.dirnx = 0
-        self.dirny = 1
+        self.dirnx = 1
+        self.dirny = 0
 
     def move(self):
         for event in pygame.event.get():
@@ -80,13 +88,16 @@ class snake(object):
             else:
                 c.move(c.dirnx, c.dirny)
 
+        # if it's on the corner, it changes direction.
+
     def reset(self, pos):
         self.head = cube(pos)
         self.body = []
         self.body.append(self.head)
         self.turns = {}
-        self.dirnx = 0
-        self.dirny = 1
+        self.dirnx = 1
+        self.dirny = 0
+
 
     def addCube(self):
         tail = self.body[-1]
@@ -110,6 +121,7 @@ class snake(object):
                 c.draw(surface, True)
             else:
                 c.draw(surface)
+
 
 
 def drawGrid(w, rows, surface):
@@ -148,7 +160,7 @@ def randomSnack(rows, item):
     return (x, y)
 
 
-def main():
+def human():
     global width, rows, s, snack
     width = 500
     rows = 20
@@ -167,23 +179,22 @@ def main():
             s.addCube()
             snack = cube(randomSnack(rows, s), color=(0, 255, 0))
 
-        for x in range(len(s.body)):
-            if s.body[x].pos in list(map(lambda z: z.pos, s.body[x + 1:])):
-                print("Score: ", len(s.body) - 1)
-
-                s.reset((10, 10))
-                break
-
         head = s.body[0].pos
 
         if head[0] >= rows or head[0] < 0 or head[1] >= rows or head[1] < 0:
             print("Score: ", len(s.body) - 1)
-            s.reset((10, 10))
+            flag = False
             break
+
+        for x in range(len(s.body)):
+            if s.body[x].pos in list(map(lambda z: z.pos, s.body[x + 1:])):
+                print("Score: ", len(s.body) - 1)
+                flag = False
+                break
 
         redrawWindow(win)
 
     pass
 
 
-main()
+human()
