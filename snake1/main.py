@@ -1,10 +1,32 @@
+# Code based on <Snake Game Python Tutorial> - freeCodeCamp.org
+# https://www.youtube.com/watch?v=CD4qAhfFuLo&t=1926s
+# https://pastebin.com/embed_js/jB6k06hG
+
 import random
 import pygame
 
-class cube(object):
-    rows = 20
-    w = 500
+WIDTH = 500
+ROWS = 20
 
+DELAY = 5
+FPS = 10
+
+REWARD = {
+    'snack': 1,
+    'crash' : -1,
+    'none' : -0.01,
+    'start' : 0
+}
+
+ACTION = {
+    0 : 'LEFT',
+    1 : 'RIGHT',
+    2 : 'UP',
+    3 : 'DOWN'
+}
+
+
+class cube(object):
     def __init__(self, start, dirnx=1, dirny=0, color=(255, 0, 0)):
         self.pos = start
         self.dirnx = 1
@@ -16,12 +38,16 @@ class cube(object):
         self.dirny = dirny
         self.pos = (self.pos[0] + self.dirnx, self.pos[1] + self.dirny)
 
+    # All cube has own direction
+    # move to current direction
+
     def draw(self, surface, eyes=False):
-        dis = self.w // self.rows
+        dis = WIDTH // ROWS
         i = self.pos[0]
         j = self.pos[1]
 
         pygame.draw.rect(surface, self.color, (i * dis + 1, j * dis + 1, dis - 2, dis - 2))
+
         if eyes:
             centre = dis // 2
             radius = 3
@@ -39,10 +65,10 @@ class snake(object):
         self.color = color
         self.head = cube(pos)
         self.body.append(self.head)
-        self.dirnx = 0
-        self.dirny = 1
+        self.dirnx = 1
+        self.dirny = 0
 
-    def move(self):
+    def move(self, action = None):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -80,13 +106,52 @@ class snake(object):
             else:
                 c.move(c.dirnx, c.dirny)
 
+        # if it's on the corner, it changes direction.
+
+    def move_gym(self, action):
+
+        key = ACTION[action]
+
+        if key == 'LEFT' and self.dirnx != 1:
+            self.dirnx = -1
+            self.dirny = 0
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+
+        elif key == 'RIGHT' and self.dirnx != -1:
+            self.dirnx = 1
+            self.dirny = 0
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+
+        elif key == 'UP' and self.dirny != 1:
+            self.dirnx = 0
+            self.dirny = -1
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+
+        elif key == 'DOWN' and self.dirny != -1:
+            self.dirnx = 0
+            self.dirny = 1
+            self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
+
+        for i, c in enumerate(self.body):
+            p = c.pos[:]
+            if p in self.turns:
+                turn = self.turns[p]
+                c.move(turn[0], turn[1])
+                if i == len(self.body) - 1:
+                    self.turns.pop(p)
+            else:
+                c.move(c.dirnx, c.dirny)
+
+        # if it's on the corner, it changes direction.
+
     def reset(self, pos):
         self.head = cube(pos)
         self.body = []
         self.body.append(self.head)
         self.turns = {}
-        self.dirnx = 0
-        self.dirny = 1
+        self.dirnx = 1
+        self.dirny = 0
+
 
     def addCube(self):
         tail = self.body[-1]
@@ -111,13 +176,12 @@ class snake(object):
             else:
                 c.draw(surface)
 
-
-def drawGrid(w, rows, surface):
-    sizeBtwn = w // rows
+def drawGrid(w, ROWS, surface):
+    sizeBtwn = w // ROWS
 
     x = 0
     y = 0
-    for l in range(rows):
+    for l in range(ROWS):
         x = x + sizeBtwn
         y = y + sizeBtwn
 
@@ -126,20 +190,20 @@ def drawGrid(w, rows, surface):
 
 
 def redrawWindow(surface):
-    global rows, width, s, snack
+    global ROWS, WIDTH, s, snack
     surface.fill((0, 0, 0))
     s.draw(surface)
     snack.draw(surface)
-    drawGrid(width, rows, surface)
+    drawGrid(WIDTH, ROWS, surface)
     pygame.display.update()
 
 
-def randomSnack(rows, item):
+def randomSnack(ROWS, item):
     positions = item.body
 
     while True:
-        x = random.randrange(rows)
-        y = random.randrange(rows)
+        x = random.randrange(ROWS)
+        y = random.randrange(ROWS)
         if len(list(filter(lambda z: z.pos == (x, y), positions))) > 0:
             continue
         else:
@@ -148,42 +212,106 @@ def randomSnack(rows, item):
     return (x, y)
 
 
-def main():
-    global width, rows, s, snack
-    width = 500
-    rows = 20
-    win = pygame.display.set_mode((width, width))
+class Env:
+    s = None
+    def __init__(self):
+        self.state_size = 4 #state
+        self.action_size = 4
+
+    def reset(self):
+        self.s = snake((255, 0, 0), (10, 10))
+        self.snack = cube(randomSnack(ROWS, self.s), color=(0, 255, 0))
+        head_pos = self.s.body[0].pos
+        snack_pos = self.snack.pos
+
+        state = head_pos + snack_pos #Can be anything that you want.
+        return state, 0, False, 'start'
+
+    def step(self, action):
+        self.s.move_gym(action)
+        info = 'none'
+        done = False
+
+        if self.s.body[0].pos == self.snack.pos:
+            self.s.addCube()
+            self.snack = cube(randomSnack(ROWS, self.s), color=(0, 255, 0))
+            info = 'snack'
+
+        snack_pos = self.snack.pos
+        head_pos = self.s.body[0].pos
+
+        if head_pos[0] >= ROWS or head_pos[0] < 0 or head_pos[1] >= ROWS or head_pos[1] < 0:
+            info = 'crash'
+            done = True
+
+        for x in range(len(self.s.body)):
+            if self.s.body[x].pos in list(map(lambda z: z.pos, self.s.body[x + 1:])):
+                info = 'crash'
+                done = True
+
+        reward = REWARD[info]
+
+        state = head_pos + snack_pos
+
+        return state, reward, done, info
+
+
+def human():
+    global s, snack
+    win = pygame.display.set_mode((WIDTH, WIDTH))
     s = snake((255, 0, 0), (10, 10))
-    snack = cube(randomSnack(rows, s), color=(0, 255, 0))
+    snack = cube(randomSnack(ROWS, s), color=(0, 255, 0))
     flag = True
 
     clock = pygame.time.Clock()
 
     while flag:
-        pygame.time.delay(50)
-        clock.tick(10)
+        pygame.time.delay(DELAY)
+        clock.tick(FPS)
         s.move()
         if s.body[0].pos == snack.pos:
             s.addCube()
-            snack = cube(randomSnack(rows, s), color=(0, 255, 0))
+            snack = cube(randomSnack(ROWS, s), color=(0, 255, 0))
+
+        head = s.body[0].pos
+
+        if head[0] >= ROWS or head[0] < 0 or head[1] >= ROWS or head[1] < 0:
+            print("Score: ", len(s.body) - 1)
+            flag = False
+            break
 
         for x in range(len(s.body)):
             if s.body[x].pos in list(map(lambda z: z.pos, s.body[x + 1:])):
                 print("Score: ", len(s.body) - 1)
-
-                s.reset((10, 10))
+                flag = False
                 break
-
-        head = s.body[0].pos
-
-        if head[0] >= rows or head[0] < 0 or head[1] >= rows or head[1] < 0:
-            print("Score: ", len(s.body) - 1)
-            s.reset((10, 10))
-            break
 
         redrawWindow(win)
 
     pass
 
+'''
+env = Env()
+state_size = 1
+action_size = 4
 
-main()
+num_rounds = 1000
+num_samples = 100
+
+
+observation, reward, done, info = env.reset()
+
+print(observation, reward, info)
+
+for i in range(num_samples):
+
+    action = random.randint(0,3)
+    next_observation, reward, done, info = env.step(action)
+    print(observation, action, reward, info)
+    observation = next_observation
+    if done:
+        observation, reward, done, info = env.reset()
+
+'''
+
+#I have trouble with env.reset(), will fix during weekend. Everything else seems fine.
