@@ -10,7 +10,7 @@ class Snake:
     """
     Prototype for the snake game
     @author: Adam Ross
-    @date: 26/04/2019
+    @date: 28/04/2019
     """
 
     N = 10  # the size of the snake game environment
@@ -25,15 +25,17 @@ class Snake:
         Initialize the Snake class
         :param manual: Boolean for True if manual play, False if automated
         """
-        self.snake = [[randint(self.N // 3, self.N - self.N // 3),
-                       randint(self.N // 3, self.N - self.N // 3)]]
+        self.food = [2, 3]
+        self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
+
+        while self.snake == self.food:
+            self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
+        self.tail = None
         self.add_tail()
-        self.tail = self.snake[-1]
         self.direction = ""
         self.snake_grew = False
         self.snake_ate = False
         self.snake_crashed = False
-        self.food = [2, 3]
         self.manual = manual
 
     def move_forward(self):
@@ -68,7 +70,8 @@ class Snake:
         Calculates the next position of snake head when moving North
         :return: the next position of the snakes head
         """
-        if [self.snake[0][0] - 1, self.snake[0][1]] != self.snake[1]:
+        if len(self.snake) == 1 or [self.snake[0][0] - 1, self.snake[0][1]] !=\
+                self.snake[1]:
             self.direction = "Snake moved North"
             return [self.snake[0][0] - 1, self.snake[0][1]]
         return None
@@ -78,7 +81,8 @@ class Snake:
         Calculates the next position of snake head when moving South
         :return: the next position of the snakes head
         """
-        if [self.snake[0][0] + 1, self.snake[0][1]] != self.snake[1]:
+        if len(self.snake) == 1 or [self.snake[0][0] + 1, self.snake[0][1]] !=\
+                self.snake[1]:
             self.direction = "Snake moved South"
             return [self.snake[0][0] + 1, self.snake[0][1]]
         return None
@@ -88,7 +92,8 @@ class Snake:
         Calculates the next position of snake head when moving East
         :return: the next position of the snakes head
         """
-        if [self.snake[0][0], self.snake[0][1] + 1] != self.snake[1]:
+        if len(self.snake) == 1 or [self.snake[0][0], self.snake[0][1] + 1] !=\
+                self.snake[1]:
             self.direction = "Snake moved East"
             return [self.snake[0][0], self.snake[0][1] + 1]
         return None
@@ -98,7 +103,8 @@ class Snake:
         Calculates the next position of snake head when moving West
         :return: the next position of the snakes head
         """
-        if [self.snake[0][0], self.snake[0][1] - 1] != self.snake[1]:
+        if len(self.snake) == 1 or [self.snake[0][0], self.snake[0][1] - 1] !=\
+                self.snake[1]:
             self.direction = "Snake moved West"
             return [self.snake[0][0], self.snake[0][1] - 1]
         return None
@@ -136,6 +142,7 @@ class Snake:
 
         if head_move:
             self.tail = self.snake.pop()
+
             if self.not_crashed(head_move):
                 self.snake[:0] = [head_move]
             else:
@@ -148,7 +155,7 @@ class Snake:
         """
         Adds an additional 'block' to the tail of the snake
         """
-        if len(self.snake) == 1:
+        if not self.tail:
             if randint(0, 1):
                 if randint(0, 1):
                     tail = [self.snake[0][0], self.snake[0][1] + 1]
@@ -211,6 +218,7 @@ class Snake:
         """
         Plays the snake game manually/automated until the snake crashes
         """
+        self.tail = self.snake[-1]
         self.display_snake()  # displays the snake and the board
 
         if self.manual and not self.snake_crashed:
