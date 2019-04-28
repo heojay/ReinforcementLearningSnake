@@ -4,6 +4,10 @@
 
 import random
 import pygame
+from interface import implements, Interface
+from snake_interfaces_v1 import IEnv
+from snake_interfaces_v1 import ICube
+from snake_interfaces_v1 import ISnake
 
 WIDTH = 500
 ROWS = 20
@@ -26,7 +30,7 @@ ACTION = {
 }
 
 
-class cube(object):
+class cube(implements(ICube), object):
     def __init__(self, start, dirnx=1, dirny=0, color=(255, 0, 0)):
         self.pos = start
         self.dirnx = 1
@@ -57,7 +61,7 @@ class cube(object):
             pygame.draw.circle(surface, (0, 0, 0), circleMiddle2, radius)
 
 
-class snake(object):
+class snake(implements(ISnake), object):
     body = []
     turns = {}
 
@@ -214,7 +218,7 @@ def randomSnack(ROWS, item):
     return (x, y)
 
 
-class Env:
+class Env(implements(IEnv)):
     def __init__(self):
         self.state_size = 4 #state
         self.action_size = 4
