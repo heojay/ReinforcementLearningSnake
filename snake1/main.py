@@ -62,6 +62,8 @@ class snake(object):
     turns = {}
 
     def __init__(self, color, pos):
+        self.body = []
+        self.turns = {}
         self.color = color
         self.head = cube(pos)
         self.body.append(self.head)
@@ -213,7 +215,6 @@ def randomSnack(ROWS, item):
 
 
 class Env:
-    s = None
     def __init__(self):
         self.state_size = 4 #state
         self.action_size = 4
@@ -221,7 +222,7 @@ class Env:
     def reset(self):
         self.s = snake((255, 0, 0), (10, 10))
         self.snack = cube(randomSnack(ROWS, self.s), color=(0, 255, 0))
-        head_pos = self.s.body[0].pos
+        head_pos = self.s.head.pos
         snack_pos = self.snack.pos
 
         state = head_pos + snack_pos #Can be anything that you want.
@@ -231,24 +232,26 @@ class Env:
         self.s.move_gym(action)
         info = 'none'
         done = False
+        head_pos = self.s.head.pos
 
-        if self.s.body[0].pos == self.snack.pos:
+        if self.s.head.pos == self.snack.pos:
             self.s.addCube()
             self.snack = cube(randomSnack(ROWS, self.s), color=(0, 255, 0))
             info = 'snack'
 
-        snack_pos = self.snack.pos
-        head_pos = self.s.body[0].pos
+        else:
 
-        if head_pos[0] >= ROWS or head_pos[0] < 0 or head_pos[1] >= ROWS or head_pos[1] < 0:
-            info = 'crash'
-            done = True
-
-        for x in range(len(self.s.body)):
-            if self.s.body[x].pos in list(map(lambda z: z.pos, self.s.body[x + 1:])):
+            if head_pos[0] > ROWS or head_pos[0] < 0 or head_pos[1] > ROWS or head_pos[1] < 0:
                 info = 'crash'
                 done = True
 
+            else:
+                for x in range(len(self.s.body)):
+                    if self.s.body[x].pos in list(map(lambda z: z.pos, self.s.body[x + 1:])):
+                        info = 'crash'
+                        done = True
+
+        snack_pos = self.snack.pos
         reward = REWARD[info]
 
         state = head_pos + snack_pos
@@ -275,7 +278,7 @@ def human():
 
         head = s.body[0].pos
 
-        if head[0] >= ROWS or head[0] < 0 or head[1] >= ROWS or head[1] < 0:
+        if head[0] > ROWS or head[0] < 0 or head[1] > ROWS or head[1] < 0:
             print("Score: ", len(s.body) - 1)
             flag = False
             break
@@ -290,7 +293,7 @@ def human():
 
     pass
 
-'''
+
 env = Env()
 state_size = 1
 action_size = 4
@@ -301,17 +304,14 @@ num_samples = 100
 
 observation, reward, done, info = env.reset()
 
-print(observation, reward, info)
-
 for i in range(num_samples):
-
     action = random.randint(0,3)
-    next_observation, reward, done, info = env.step(action)
     print(observation, action, reward, info)
+    next_observation, reward, done, info = env.step(action)
     observation = next_observation
     if done:
-        observation, reward, done, info = env.reset()
+       observation, reward, done, info = env.reset()
 
-'''
+
 
 #I have trouble with env.reset(), will fix during weekend. Everything else seems fine.
