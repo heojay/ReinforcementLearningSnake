@@ -1,3 +1,4 @@
-/tests/__pycahce__/
+/tests/__pycache__/
 /snake1/venv/
 .idea/
+*.pyc

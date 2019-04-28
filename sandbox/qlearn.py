@@ -4,7 +4,7 @@
 
 import numpy as np
 
-class qlearn:
+class Qlearn:
     lr = 0.1 # alpha learn_rate
     disc = 0.95  # gamma discunt
     expl = 1.0 # exploration
@@ -26,16 +26,16 @@ class qlearn:
 
     def getMaxValue(self, row, col):
         v = self.mtx_north[row, col]
-        qc = qcell(row, col, v, "north")
+        qc = Qcell(row, col, v, "north")
         if self.mtx_south[row, col] > v:
             v = self.mtx_south[row, col]
-            qc = qcell(row, col, v, "south")
+            qc = Qcell(row, col, v, "south")
         if self.mtx_east[row, col] > v:
             v = self.mtx_east[row, col]
-            qc = qcell(row, col, v, "east")
+            qc = Qcell(row, col, v, "east")
         if self.mtx_west[row, col] > v:
             v = self.mtx_west[row, col]
-            qc = qcell(row, col, v, "west")
+            qc = Qcell(row, col, v, "west")
         return qc
 
     def getQValueNorth(self, row, col):
@@ -54,7 +54,7 @@ class qlearn:
         ###print(self.m[0][0])
 
 
-class qcell:
+class Qcell:
     def __init__(self, row, col, maxval, maxdir):
         self.row = row
         self.col = col
@@ -68,7 +68,7 @@ def main():
     print("Begin qlearn")
     width = 10
     height = 10
-    q = qlearn(width, height)
+    q = Qlearn(width, height)
     print(q.mtx_north)
     v = q.getQValueEast(1,1)
     print(v)
