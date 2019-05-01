@@ -2,6 +2,7 @@
 #   https://github.com/grantsrb/Gym-Snake
 # This is a shortest path version
 # Contains a method that find the food
+# Note that this only works for one food goal
 
 # TODO: look into GoalEnv
 
@@ -15,17 +16,18 @@ def select_action(snake_object, coord_food):
     :return: an action index
     """
     snake_dir = snake_object.direction
-    snake_coord = snake_object.head
-    if snake_coord[0] < coord_food[0]:
-        return snake_object.LEFT
-    elif snake_coord[0] > coord_food[0]:
+    snakex = snake_object.head[0]
+    snakey = snake_object.head[1]
+    if snakex < coord_food[0] and snake_dir != snake_object.LEFT:
         return snake_object.RIGHT
-    elif snake_coord[1] > coord_food[1]:
+    elif snakex > coord_food[0] and snake_dir != snake_object.RIGHT:
+        return snake_object.LEFT
+    elif snakey > coord_food[1] and snake_dir != snake_object.DOWN:
         return snake_object.UP
-    elif snake_coord[1] < coord_food[1]:
+    elif snakey < coord_food[1] and snake_dir != snake_object.UP:
         return snake_object.DOWN
     else:
-        # todo: also handle snake direction
+        # todo: handle second best movement in case snake is pointing in wrong direction
         return None
 
 
@@ -70,7 +72,9 @@ for i_episode in range(20):
         print("interval t={}".format(t))
         #print(observation)
         action = select_action(snake_object1, coord_food)
-        prev_action = action
+        #prev_action = action
+        if (action == None):
+            break
         observation, reward, done, info = env.step(action)
         if done:
             print("Episode finished after {} timesteps".format(t+1))
