@@ -120,26 +120,38 @@ class Snake:
             food = [food[1], (food[0] + food[1]) % (self.N - 1)]
         return food
 
-    def move_snake(self, dir):
+    def relative_dirs(self, dir):
         """
         Moves snake one space forward, left or right of current head position
-        :param dir: the direction the snake is moving
+        :param dir: the new snake head position
         """
         if str(dir) == '1':  # snake is continuing straight
-            head_move = self.move_forward()
+            return self.move_forward()
         elif str(dir) == '2':  # snake is turning left
-            head_move = self.move_left()
-        elif str(dir) == '3':  # snake is turning right
-            head_move = self.move_right()
-        elif dir == '\x1b[A':  # snake is moving North
-            head_move = self.move_north()
-        elif dir == '\x1b[B':  # snake is moving South
-            head_move = self.move_south()
-        elif dir == '\x1b[C':  # snake is moving East
-            head_move = self.move_east()
-        else:  # snake is moving West
-            head_move = self.move_west()
+            return self.move_left()
+        else:  # snake is turning right
+            return self.move_right()
 
+    def absolute_dirs(self, dir):
+        """
+        Moves snake in absolute N, E, S, or W direction of current head pos
+        :param dir: the direction the snake is moving
+        :return: the new snake head position or None if not able to move
+        """
+        if dir == '\x1b[A':  # snake is moving North
+            return self.move_north()
+        elif dir == '\x1b[B':  # snake is moving South
+            return self.move_south()
+        elif dir == '\x1b[C':  # snake is moving East
+            return self.move_east()
+        else:  # snake is moving West
+            return self.move_west()
+
+    def move_snake(self, head_move):
+        """
+        Determines if snake can move and moves snake if so
+        :param head_move: if and where the snake is moving
+        """
         if head_move:
             self.tail = self.snake.pop()
 
@@ -159,14 +171,14 @@ class Snake:
         if start:
             if randint(0, 1):
                 if randint(0, 1):
-                    tail = [self.snake[0][0], self.snake[0][1] + 1]
+                    tail = [self.snake[-1][0], self.snake[-1][1] + 1]
                 else:
-                    tail = [self.snake[0][0], self.snake[0][1] - 1]
+                    tail = [self.snake[-1][0], self.snake[-1][1] - 1]
             else:
                 if randint(0, 1):
-                    tail = [self.snake[0][0] + 1, self.snake[0][1]]
+                    tail = [self.snake[-1][0] + 1, self.snake[-1][1]]
                 else:
-                    tail = [self.snake[0][0] + 1, self.snake[0][1]]
+                    tail = [self.snake[-1][0] + 1, self.snake[-1][1]]
         else:
             tail = self.tail
 
@@ -226,10 +238,10 @@ class Snake:
 
             while move not in ['\x1b[A', '\x1b[B', '\x1b[C', '\x1b[D']:
                 move = input("Use the arrow keys to move the snake:\n")
-            self.move_snake(move)
+            self.move_snake(self.absolute_dirs(move))
         elif not self.snake_crashed:
             sleep(self.SLEEP_TIME)  # pauses game between snake moves
-            self.move_snake(randint(1, 3))
+            self.move_snake(self.relative_dirs(randint(1, 3)))
 
         if not self.snake_crashed:  # if snake move without crashing
             self.go()

@@ -21,9 +21,9 @@ class LearningQ:
     POSITIVE_REWARD = 1  # the reward fro when snake eats food
     EPISODES = 500  # number of episodes
     SPEED = 600  # the speed the snake moves
-    SIZE = 3  # the length of the snake
+    SIZE = 1  # the length of the snake
     DIRS = {0: '\x1b[A', 1: '\x1b[B', 2: '\x1b[C', 3: '\x1b[D'}
-    DISPLAY = True
+    DISPLAY = False
 
     def __init__(self):
         """
@@ -67,7 +67,7 @@ class LearningQ:
         else:
             self.action = self.ql_map[self.state[0]][self.state[1]].\
                 index(max(self.ql_map[self.state[0]][self.state[1]]))
-        self.game.move_snake(self.DIRS[self.action])
+        self.game.move_snake(self.game.absolute_dirs(self.DIRS[self.action]))
         self.update_state()
 
         if self.DISPLAY:
@@ -77,6 +77,24 @@ class LearningQ:
             sleep(1 / self.SPEED)
             self.play_episode()
 
+    def init_snake(self):
+        """
+        Initializes the snake and game environment
+        """
+        self.game = Snake(True)
+        self.agent = self.game.snake
+
+        if len(self.agent) > self.SIZE:
+            self.agent.pop()
+
+        while len(self.agent) < self.SIZE:
+            self.game.add_tail(True)
+
+            for j in range(2):
+                if not 0 <= self.agent[-1][j] < self.game.N:
+                    self.agent.pop()
+                    break
+
     def q_learn(self):
         """
         Runs the Q-learning algorithm for number of given episodes
@@ -84,24 +102,29 @@ class LearningQ:
         for i in range(self.EPISODES):
             system('clear')
             print("Episode " + str(i + 1) + " out of " + str(self.EPISODES))
-            self.game = Snake(True)
-            self.agent = self.game.snake
-
-            if len(self.agent) > self.SIZE:
-                self.agent.pop()
-
-            while len(self.agent) < self.SIZE:
-                self.game.add_tail(True)
-
-                for j in range(2):
-                    if not 0 <= self.agent[-1][j] < self.game.N:
-                        self.agent.pop()
-                        break
+            self.init_snake()
             self.game.snake_crashed = False
             self.play_episode()
+
+    def optimal_paths(self):
+        """
+        Finds and displays an optimal path determined by q-learning results
+        Starts from random position and creates a path to the food position
+        """
+        self.init_snake()
+
+        while self.agent[0] != self.trophy:
+            self.action = self.ql_map[self.agent[0][0]][self.agent[0][1]].\
+                index(max(self.ql_map[self.agent[0][0]][self.agent[0][1]]))
+            head_move = self.game.absolute_dirs(self.DIRS[self.action])
+
+            if head_move:
+                self.agent[:0] = [head_move]
+        self.agent.pop(0)
+        self.game.display_snake()
 
 
 if __name__ == "__main__":
     app = LearningQ()
     app.q_learn()
-    [print(row) for row in app.ql_map]
+    app.optimal_paths()
