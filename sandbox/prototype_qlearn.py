@@ -2,14 +2,14 @@
 
 from time import sleep
 from random import randint
-from sandbox.prototype_snake import Snake
+from prototype_snake import Snake
 
 
 class LearningQ:
     """
     Prototype for the q-learning algorithm
     Author: Adam Ross
-    Date: 28/04/2019
+    Date: 01/05/2019
     """
 
     ETA = 0.1  # learning rate
@@ -20,6 +20,7 @@ class LearningQ:
     SPEED = 600  # the speed the snake moves
     SIZE = 1  # the length of the snake
     DIRS = {0: '\x1b[A', 1: '\x1b[B', 2: '\x1b[C', 3: '\x1b[D'}
+    DISPLAY = False
 
     def __init__(self):
         """
@@ -61,6 +62,9 @@ class LearningQ:
         self.game.move_snake(self.DIRS[self.action])
         self.update_state()
 
+        if self.DISPLAY:
+            self.game.display_snake()
+
         if not self.game.snake_crashed and not \
                 [self.agent[0][0], self.agent[0][1]] == self.trophy:
             sleep(1 / self.SPEED)
@@ -87,9 +91,9 @@ class LearningQ:
                         self.agent.pop()
                         break
             self.play_episode()
-        [print(row) for row in self.ql_map]
 
 
 if __name__ == "__main__":
     app = LearningQ()
     app.q_learn()
+    [print(row) for row in app.ql_map]
