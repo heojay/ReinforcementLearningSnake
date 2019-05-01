@@ -10,7 +10,7 @@ class Snake:
     """
     Prototype for the snake game
     @author: Adam Ross
-    @date: 22/04/2019
+    @date: 28/04/2019
     """
 
     N = 10  # the size of the snake game environment
@@ -25,14 +25,17 @@ class Snake:
         Initialize the Snake class
         :param manual: Boolean for True if manual play, False if automated
         """
-        self.snake = [[randint(self.N // 3, self.N - self.N // 3),
-                       randint(self.N // 3, self.N - self.N // 3)]]
+        self.food = [2, 3]
+        self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
+
+        while self.snake == self.food:
+            self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
+        self.tail = None
         self.add_tail()
         self.direction = ""
         self.snake_grew = False
         self.snake_ate = False
         self.snake_crashed = False
-        self.food = self.new_food()
         self.manual = manual
 
     def move_forward(self):
@@ -62,41 +65,97 @@ class Snake:
         return [self.snake[0][0] + (self.snake[0][1] - self.snake[1][1]),
                 self.snake[0][1] - (self.snake[0][0] - self.snake[1][0])]
 
+    def move_north(self):
+        """
+        Calculates the next position of snake head when moving North
+        :return: the next position of the snakes head
+        """
+        if len(self.snake) == 1 or [self.snake[0][0] - 1, self.snake[0][1]] !=\
+                self.snake[1]:
+            self.direction = "Snake moved North"
+            return [self.snake[0][0] - 1, self.snake[0][1]]
+        return None
+
+    def move_south(self):
+        """
+        Calculates the next position of snake head when moving South
+        :return: the next position of the snakes head
+        """
+        if len(self.snake) == 1 or [self.snake[0][0] + 1, self.snake[0][1]] !=\
+                self.snake[1]:
+            self.direction = "Snake moved South"
+            return [self.snake[0][0] + 1, self.snake[0][1]]
+        return None
+
+    def move_east(self):
+        """
+        Calculates the next position of snake head when moving East
+        :return: the next position of the snakes head
+        """
+        if len(self.snake) == 1 or [self.snake[0][0], self.snake[0][1] + 1] !=\
+                self.snake[1]:
+            self.direction = "Snake moved East"
+            return [self.snake[0][0], self.snake[0][1] + 1]
+        return None
+
+    def move_west(self):
+        """
+        Calculates the next position of snake head when moving West
+        :return: the next position of the snakes head
+        """
+        if len(self.snake) == 1 or [self.snake[0][0], self.snake[0][1] - 1] !=\
+                self.snake[1]:
+            self.direction = "Snake moved West"
+            return [self.snake[0][0], self.snake[0][1] - 1]
+        return None
+
     def new_food(self):
         """
         Sets a new position for a piece of food for the snake to eat
         :return: the new food position
         """
-        new_food_pos = [randint(0, self.N - 1), randint(0, self.N - 1)]
+        food = [self.food[1], (self.food[0] + self.food[1]) % (self.N - 1)]
 
-        while new_food_pos in self.snake:
-            new_food_pos = [randint(0, self.N - 1), randint(0, self.N - 1)]
-        return new_food_pos
+        while food in self.snake:
+            food = [food[1], (food[0] + food[1]) % (self.N - 1)]
+        return food
 
     def move_snake(self, dir):
         """
         Moves snake one space forward, left or right of current head position
-        :param dir: the direction the snake is moving; forward, left or right
+        :param dir: the direction the snake is moving
         """
-        if dir == 1:  # snake is continuing straight
-            head = self.move_forward()
-        elif dir == 2:  # snake is turning left
-            head = self.move_left()
-        else:  # snake is turning right
-            head = self.move_right()
-        tail = self.snake.pop()
+        if str(dir) == '1':  # snake is continuing straight
+            head_move = self.move_forward()
+        elif str(dir) == '2':  # snake is turning left
+            head_move = self.move_left()
+        elif str(dir) == '3':  # snake is turning right
+            head_move = self.move_right()
+        elif dir == '\x1b[A':  # snake is moving North
+            head_move = self.move_north()
+        elif dir == '\x1b[B':  # snake is moving South
+            head_move = self.move_south()
+        elif dir == '\x1b[C':  # snake is moving East
+            head_move = self.move_east()
+        else:  # snake is moving West
+            head_move = self.move_west()
 
-        if self.not_crashed(head):
-            self.snake[:0] = [head]
+        if head_move:
+            self.tail = self.snake.pop()
+
+            if self.not_crashed(head_move):
+                self.snake[:0] = [head_move]
+            else:
+                self.snake.append(self.tail)
+                self.snake_crashed = True
         else:
-            self.snake.append(tail)
-            self.snake_crashed = True
+            self.direction = "Snake can't move inside itself"
 
     def add_tail(self):
         """
         Adds an additional 'block' to the tail of the snake
         """
-        if len(self.snake) == 1:
+        if not self.tail:
             if randint(0, 1):
                 if randint(0, 1):
                     tail = [self.snake[0][0], self.snake[0][1] + 1]
@@ -108,8 +167,7 @@ class Snake:
                 else:
                     tail = [self.snake[0][0] + 1, self.snake[0][1]]
         else:
-            tail = [self.snake[-1][0] + (self.snake[-1][0] - self.snake[-2][0]),
-                    self.snake[-1][1] + (self.snake[-1][1] - self.snake[-2][1])]
+            tail = self.tail
 
         if self.not_crashed(tail):
             self.snake.append(tail)
@@ -123,7 +181,7 @@ class Snake:
         :param b: new 'block' being added to snake at either head or tail end
         :return: True if 'block' pos is available inside game, False otherwise
         """
-        return 0 <= b[0] < self.N and 0 <= b[1] < self.N and b not in self.snake
+        return 0 <= b[0] < self.N and 0 <= b[1] < self.N and b not in self.snake[1:]
 
     def display_snake(self):
         """
@@ -160,14 +218,15 @@ class Snake:
         """
         Plays the snake game manually/automated until the snake crashes
         """
+        self.tail = self.snake[-1]
         self.display_snake()  # displays the snake and the board
 
         if self.manual and not self.snake_crashed:
-            move = input("Enter 1 for forward, 2 for left, 3 for right:\n")
+            move = input("Use the arrow keys to move the snake:\n")
 
-            while move not in ['1', '2', '3']:
-                move = input("Enter 1 for forward, 2 for left, 3 for right:\n")
-            self.move_snake(int(move))
+            while move not in ['\x1b[A', '\x1b[B', '\x1b[C', '\x1b[D']:
+                move = input("Use the arrow keys to move the snake:\n")
+            self.move_snake(move)
         elif not self.snake_crashed:
             sleep(self.SLEEP_TIME)  # pauses game between snake moves
             self.move_snake(randint(1, 3))
