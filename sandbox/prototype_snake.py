@@ -28,10 +28,10 @@ class Snake:
         self.food = [2, 3]
         self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
 
-        while self.snake == self.food:
+        while self.snake[0] == self.food:
             self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
-        self.tail = None
-        self.add_tail()
+        self.add_tail(True)
+        self.tail = self.snake[-1]
         self.direction = ""
         self.snake_grew = False
         self.snake_ate = False
@@ -151,11 +151,12 @@ class Snake:
         else:
             self.direction = "Snake can't move inside itself"
 
-    def add_tail(self):
+    def add_tail(self, start=False):
         """
         Adds an additional 'block' to the tail of the snake
+        :param start: is the start of the game initializing of snake
         """
-        if not self.tail:
+        if start:
             if randint(0, 1):
                 if randint(0, 1):
                     tail = [self.snake[0][0], self.snake[0][1] + 1]
@@ -218,7 +219,6 @@ class Snake:
         """
         Plays the snake game manually/automated until the snake crashes
         """
-        self.tail = self.snake[-1]
         self.display_snake()  # displays the snake and the board
 
         if self.manual and not self.snake_crashed:
