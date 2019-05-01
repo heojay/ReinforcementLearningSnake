@@ -10,9 +10,12 @@ import gym
 import gym_snake
 
 
+EPISODES = 20  # number of episodes
+
+
 def select_action(snake_object, coord_food):
     """
-    This simply moves in a circle
+    This selects a move that can be likened to shortest path (almost)
     :return: an action index
     """
     snake_dir = snake_object.direction
@@ -56,7 +59,7 @@ env.random_init = False
 ##print(game_controller.snakes[0])
 
 
-for i_episode in range(20):
+for i_episode in range(EPISODES):
     observation = env.reset()
     
     game_controller = env.controller
@@ -67,7 +70,7 @@ for i_episode in range(20):
     print("food located at {}".format(coord_food))
 
     prev_action = 0
-    for t in range(10):
+    for t in range(100):
         env.render()
         print("interval t={}".format(t))
         #print(observation)
