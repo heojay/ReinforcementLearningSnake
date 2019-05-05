@@ -2,15 +2,15 @@
 
 from random import randint
 from time import sleep
-from sys import exit, argv
+from sys import exit
 from os import system
 
 
 class Snake:
     """
-    Prototype for the snake game
+    Simple snake game for reinforcement learning
     @author: Adam Ross
-    @date: 28/04/2019
+    @date: 02/05/2019
     """
 
     N = 10  # the size of the snake game environment
@@ -25,18 +25,31 @@ class Snake:
         Initialize the Snake class
         :param manual: Boolean for True if manual play, False if automated
         """
-        self.food = [2, 3]
-        self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
-
-        while self.snake[0] == self.food:
-            self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
-        self.add_tail(True)
-        self.tail = self.snake[-1]
+        self.food = None
+        self.snake = None
+        self.tail = None
         self.direction = ""
         self.snake_grew = False
         self.snake_ate = False
         self.snake_crashed = False
         self.manual = manual
+        self.restricted_learning = False
+
+    def set_food(self, new_pos):
+        """
+        Initializes the food position
+        :param new_pos: the [x, y] of the new food position
+        """
+        self.food = new_pos
+
+    def set_snake(self):
+        """
+        Randomly initializes snake position on board not equal to food position
+        """
+        self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
+
+        while self.snake[0] == self.food:
+            self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
 
     def move_forward(self):
         """
@@ -169,16 +182,19 @@ class Snake:
         :param start: is the start of the game initializing of snake
         """
         if start:
-            if randint(0, 1):
+            while True:
                 if randint(0, 1):
-                    tail = [self.snake[-1][0], self.snake[-1][1] + 1]
+                    if randint(0, 1):
+                        tail = [self.snake[-1][0], self.snake[-1][1] + 1]
+                    else:
+                        tail = [self.snake[-1][0], self.snake[-1][1] - 1]
                 else:
-                    tail = [self.snake[-1][0], self.snake[-1][1] - 1]
-            else:
-                if randint(0, 1):
-                    tail = [self.snake[-1][0] + 1, self.snake[-1][1]]
-                else:
-                    tail = [self.snake[-1][0] + 1, self.snake[-1][1]]
+                    if randint(0, 1):
+                        tail = [self.snake[-1][0] + 1, self.snake[-1][1]]
+                    else:
+                        tail = [self.snake[-1][0] - 1, self.snake[-1][1]]
+                if 0 <= tail[0] < self.N and 0 <= tail[1] < self.N:
+                    break
         else:
             tail = self.tail
 
@@ -194,7 +210,8 @@ class Snake:
         :param b: new 'block' being added to snake at either head or tail end
         :return: True if 'block' pos is available inside game, False otherwise
         """
-        return 0 <= b[0] < self.N and 0 <= b[1] < self.N and b not in self.snake[1:]
+        return 0 <= b[0] < self.N and 0 <= b[1] < self.N and \
+                    b not in self.snake[1:]
 
     def display_snake(self):
         """
@@ -202,18 +219,24 @@ class Snake:
         """
         if self.snake[0] == self.food:
             self.add_tail()
-            self.food = self.new_food()
+            self.set_food(self.new_food())
             self.snake_ate = True
 
         if self.snake_crashed:
             game = [[' ' if [j, i] not in self.snake else self.RED
                      for i in range(self.N)] for j in range(self.N)]
         else:
-            game = [[' ' if [j, i] not in self.snake else self.YELLOW
-                     for i in range(self.N)] for j in range(self.N)]
+            if self.restricted_learning:
+                game = [[' ' if [j, i] not in self.snake else self.YELLOW
+                         for i in range(self.N)] for j in range(self.N)]
+            else:
+                game = [[' ' if [j, i] not in self.snake else self.YELLOW
+                         for i in range(self.N)] for j in range(self.N)]
             game[self.food[0]][self.food[1]] = self.FOOD
             game[self.snake[0][0]][self.snake[0][1]] = self.PURPLE
-        system('clear')
+
+        if not self.restricted_learning:
+            system('clear')
         print('-' * (self.N + 2))
         [print('|' + "".join([j for j in i]) + '|') for i in game]
         print('-' * (self.N + 2))
@@ -255,11 +278,3 @@ class Snake:
         self.display_snake()  # displays the snake and the board
         print("Snake crashed")
         exit(1)
-
-
-if __name__ == "__main__":
-    if len(argv) > 1 and argv[1] == "-m":
-        app = Snake(True)
-    else:
-        app = Snake()
-    app.go()
