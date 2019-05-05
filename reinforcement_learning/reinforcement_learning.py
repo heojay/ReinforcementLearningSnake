@@ -3,8 +3,10 @@
 from reinforcement_learning.snake.prototype_snake import Snake
 from random import randint, random
 from abc import abstractmethod
+from pickle import loads, dump
 from time import sleep
 from os import system
+from cmath import inf
 
 
 class ReinforcementLearning:
@@ -14,25 +16,27 @@ class ReinforcementLearning:
     Date: 05/05/2019
     """
 
+    ETA = 0.1  # learning rate
+    GAMMA = 0.95  # discount factor
+    EPSILON = 0.9  # exploration rate
     DEFAULT_REWARD = 0  # default reward
     NEGATIVE_REWARD = -1  # the reward for when snake crashes
     POSITIVE_REWARD = 1  # the reward for when snake eats food
-    EPISODES = 500  # number of episodes
+    EPISODES = 1000  # number of episodes
     SPEED = 600  # the speed the snake moves
-    SIZE = 3  # the length of the snake
+    SIZE = 1  # the length of the snake
     DIRS = {0: '\x1b[A', 1: '\x1b[B', 2: '\x1b[C', 3: '\x1b[D'}
     OPTIMAL_PATHS = 5  # the number of optimal paths displayed
     OPTIMAL_LEVELS = 5  # the number of consecutive levels paths displayed
     DISPLAY = False  # if the learning algorithm is displayed or not
     FOOD_POS = [2, 3]  # the food pos at initialization
 
-    def __init__(self, eta, gamma, epsilon):
+    def __init__(self, file_name):
         """
         Class Initializer
+        :param file_name: the name of the file the learning data is saved to
         """
-        self.eta = eta  # learning rate
-        self.gamma = gamma  # discount factor
-        self.epsilon = epsilon  # exploration rate
+        self.file = 'reinforcement_learning/data/' + file_name
         self.game = Snake(True)  # snake game instance
         self.rl_map_levels = {i: None for i in range(self.OPTIMAL_LEVELS)}
         self.rl_map = [[[0] * 4 for _ in range(self.game.N)]
@@ -50,11 +54,22 @@ class ReinforcementLearning:
         Updates a state action q-value using an update rule
         """
 
+    def update_rule(self, state, action, next_action):
+        """
+        Update rule for SARSA and Q-learning algorithms
+        :param state: the state being updated
+        :param action: the action in the state being updated
+        :param next_action: the action in the next state
+        """
+        self.rl_map[state[0]][state[1]][action] += \
+            self.ETA * (self.reward + self.GAMMA * next_action -
+                        self.rl_map[state[0]][state[1]][action])
+
     def choose_action(self):
         """
         Chooses an action in a state to update the q-value of
         """
-        if random() < self.epsilon:
+        if random() < self.EPSILON:
             self.action = randint(0, 3)
         else:
             self.action = self.rl_map[self.state[0]][self.state[1]]. \
@@ -64,9 +79,6 @@ class ReinforcementLearning:
         """
         Plays an episode until agent finds trophy or crashes
         """
-        self.state = self.agent[0].copy()
-        self.choose_action()
-        self.game.move_snake(self.game.absolute_dirs(self.DIRS[self.action]))
         self.update_state()
 
         if self.DISPLAY:
@@ -112,18 +124,23 @@ class ReinforcementLearning:
             self.rl_map_levels[j - 1] = self.rl_map
             self.rl_map = [[[0] * 4 for _ in range(self.game.N)]
                            for _ in range(self.game.N)]
+        with open(self.file, 'wb') as file:
+            dump(self.rl_map_levels, file)
 
     def optimal_paths(self):
         """
         Finds and displays an optimal path determined by learning algorithm
         Starts from random position and draws a path to the food position
         """
+        with open(self.file, 'rb') as handle:
+            self.rl_map_levels = loads(handle.read())
+
         for k in range(self.OPTIMAL_PATHS):
             self.food = self.FOOD_POS
             self.agent = None
 
             for i in range(self.OPTIMAL_LEVELS):
-                print(str(k + 1) + " : " + str(i + 1))
+                print("Optimal path " + str(k + 1) + " -> level " + str(i + 1))
                 self.rl_map = self.rl_map_levels[i]
 
                 if i > 0:
@@ -138,17 +155,16 @@ class ReinforcementLearning:
                     actions = [4]
 
                     while True:
-                        max_q_value = 0
+                        max_q_value = -inf
 
                         for j in range(4):
                             if j not in actions:
-                                max_q_value = \
+                                new_value = \
                                     max([self.rl_map[self.agent[0][0]][self.
                                         agent[0][1]][j], max_q_value])
 
-                        self.action = \
-                            self.rl_map[self.agent[0][0]][self.agent[0][1]].\
-                                                            index(max_q_value)
+                                if new_value > max_q_value:
+                                    max_q_value, self.action = new_value, j
                         head_move = self.game.absolute_dirs(self.DIRS[self.
                                                             action])
 
