@@ -71,7 +71,7 @@ for i_episode in range(EPISODES):
 
     prev_action = 0
     for t in range(100):
-        env.render()
+        env.render(frame_speed=.01)
         print("interval t={}".format(t))
         #print(observation)
         action = select_action(snake_object1, coord_food)
