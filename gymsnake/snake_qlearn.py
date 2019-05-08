@@ -11,13 +11,17 @@ import numpy as np
 import random
 
 class SnakeQlearning:
+    """
+    Snake game that uses Q-learning
+    Date: 2019-05-02
+    """
 
     ETA = 0.1  # learning rate
     GAMMA = 0.95  # discount
     EPSILON = 1  # exploration: greedy - random
     REWARD = 0  # default reward
-    EPISODES = 1  # number of episodes
-    TIME_INTERVALS = 10 # max number of time intervals per episode
+    EPISODES = 2  # number of episodes
+    TIME_INTERVALS = 20 # max number of time intervals per episode
 
     def __init__(self):
         """
