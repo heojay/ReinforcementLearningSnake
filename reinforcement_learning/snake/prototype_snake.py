@@ -13,7 +13,7 @@ class Snake:
     @date: 02/05/2019
     """
 
-    N = 10  # the size of the snake game environment
+    N = 11  # the size of the snake game environment
     SLEEP_TIME = 0.5  # seconds that the game is paused between snake moves
     YELLOW = '\033[93m' + '#' + '\033[0m'
     PURPLE = '\033[95m' + '#' + '\033[0m'
@@ -48,7 +48,7 @@ class Snake:
         """
         self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
 
-        while self.snake[0] == self.food:
+        while self.food in self.snake:
             self.snake = [[randint(0, self.N - 1), randint(0, self.N - 1)]]
 
     def move_forward(self):
@@ -127,10 +127,10 @@ class Snake:
         Sets a new position for a piece of food for the snake to eat
         :return: the new food position
         """
-        food = [self.food[1], (self.food[0] + self.food[1]) % (self.N - 1)]
+        food = [self.food[1], (self.food[0] + self.food[1]) % self.N]
 
         while food in self.snake:
-            food = [food[1], (food[0] + food[1]) % (self.N - 1)]
+            food = [food[1], (food[0] + food[1]) % self.N]
         return food
 
     def relative_dirs(self, dir):
@@ -226,12 +226,8 @@ class Snake:
             game = [[' ' if [j, i] not in self.snake else self.RED
                      for i in range(self.N)] for j in range(self.N)]
         else:
-            if self.restricted_learning:
-                game = [[' ' if [j, i] not in self.snake else self.YELLOW
-                         for i in range(self.N)] for j in range(self.N)]
-            else:
-                game = [[' ' if [j, i] not in self.snake else self.YELLOW
-                         for i in range(self.N)] for j in range(self.N)]
+            game = [[' ' if [j, i] not in self.snake else self.YELLOW
+                     for i in range(self.N)] for j in range(self.N)]
             game[self.food[0]][self.food[1]] = self.FOOD
             game[self.snake[0][0]][self.snake[0][1]] = self.PURPLE
 

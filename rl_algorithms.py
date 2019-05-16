@@ -3,6 +3,7 @@
 from reinforcement_learning.snake.prototype_snake import Snake
 from reinforcement_learning.q_learning import QLearning
 from reinforcement_learning.sarsa import Sarsa
+from matplotlib import patches, pyplot as plt
 from sys import argv as arguments
 
 
@@ -10,44 +11,49 @@ class ReinforcementLearningAlgorithms:
     """
     Class for reinforcement learning algorithms in snake game environment
     Author: Adam Ross
-    Date: 05/05/2019
+    Date: 16/05/2019
     """
 
-    SIZE = 3  # the initial size of the snake in the snake game
-    Q_LEARNING_FILE = 'q-learning.txt'
-    SARSA_FILE = 'sarsa.txt'
+    SIZE = 1  # the initial size of the snake/agent whether playing or learning
+    LEVELS = 2  # the number of snake game levels being learned
+    EPISODES = 15000  # the number of learning episodes per snake game level
+    Q_LEARNING_FILE = 'q-learning_L1.txt'
+    SARSA_FILE = 'sarsa_L1.txt'
 
     def __init__(self):
         """
         Class initializer
         """
-        self.q_learning = QLearning(self.Q_LEARNING_FILE)
-        self.sarsa = Sarsa(self.SARSA_FILE)
+        self.cols, self.algos = ['red', 'blue'], ['Q-learning', 'SARSA']
+        self.q_learning = QLearning(self.Q_LEARNING_FILE, self.EPISODES,
+                                    self.LEVELS, self.SIZE)
+        self.sarsa = Sarsa(self.SARSA_FILE, self.EPISODES, self.LEVELS,
+                           self.SIZE)
         self.snake = Snake(True)
 
     def learn_q_learning(self):
         """
         Runs the q-learning algorithm in the snake game environment
         """
-        self.q_learning.learn()
+        return self.q_learning.learn()
 
     def test_q_learning(self):
         """
         Tests the q-learning algorithm output data by drawing optimal paths
         """
-        self.q_learning.optimal_paths()
+        return self.q_learning.optimal_paths()
 
     def learn_sarsa(self):
         """
         Runs the SARSA algorithm in the snake game environment
         """
-        self.sarsa.learn()
+        return self.sarsa.learn()
 
     def test_sarsa(self):
         """
         Tests the SARSA algorithm output data by drawing optimal paths
         """
-        self.sarsa.optimal_paths()
+        return self.sarsa.optimal_paths()
 
     def play_snake(self):
         """
@@ -56,7 +62,7 @@ class ReinforcementLearningAlgorithms:
         self.snake.set_food([2, 3])
         self.snake.set_snake()
 
-        for i in range(app.SIZE):
+        for i in range(self.SIZE):
             self.snake.add_tail(True)
         self.snake.go()
 

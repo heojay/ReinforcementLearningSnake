@@ -13,7 +13,7 @@ class ReinforcementLearning:
     """
     Superclass for restricted learning algorithms
     Author: Adam Ross
-    Date: 05/05/2019
+    Date: 16/05/2019
     """
 
     ETA = 0.1  # learning rate
@@ -22,31 +22,34 @@ class ReinforcementLearning:
     DEFAULT_REWARD = 0  # default reward
     NEGATIVE_REWARD = -1  # the reward for when snake crashes
     POSITIVE_REWARD = 1  # the reward for when snake eats food
-    EPISODES = 1000  # number of episodes
     SPEED = 600  # the speed the snake moves
-    SIZE = 1  # the length of the snake
     DIRS = {0: '\x1b[A', 1: '\x1b[B', 2: '\x1b[C', 3: '\x1b[D'}
-    OPTIMAL_PATHS = 5  # the number of optimal paths displayed
-    OPTIMAL_LEVELS = 5  # the number of consecutive levels paths displayed
+    OPTIMAL_PATHS = 121  # the number of optimal paths displayed
     DISPLAY = False  # if the learning algorithm is displayed or not
-    FOOD_POS = [2, 3]  # the food pos at initialization
+    TROPHY_POS = [5, 5]   # trophy pos at init
+    FIXED_TROPHY = True  # if the trophy position is fixed at every episode
+    PURE_RANDOM = False  # if the trophy is pure random at every episode
+    GROW = True  # if the agent (snake) increments at tail when gets a trophy
+    FIXED_AGENT = False  # if the agent has a fixed starting state each episode
+    FIXED_AGENT_POS = [3, 8]  # the pos of the agent when FIXED_AGENT is True
+    PATH = 'reinforcement_learning/data/'  # the path to table data file
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, episodes, levels, size):
         """
         Class Initializer
         :param file_name: the name of the file the learning data is saved to
+        :param episodes: the number of learning episodes
+        :param levels: the number of snake game levels learned and played back
+        :param size: the size of the agent at learning initialization
         """
-        self.file = 'reinforcement_learning/data/' + file_name
+        self.file, self.reward = self.PATH + file_name, self.DEFAULT_REWARD
+        self.episodes, self.levels, self.size = episodes, levels, size
         self.game = Snake(True)  # snake game instance
-        self.rl_map_levels = {i: None for i in range(self.OPTIMAL_LEVELS)}
+        self.rl_map_levels = {i: None for i in range(self.levels)}
         self.rl_map = [[[0] * 4 for _ in range(self.game.N)]
                        for _ in range(self.game.N)]  # matrix of states
-        self.agent = None  # the agent
-        self.trophy = None  # the trophy with reward = 1
-        self.state = []  # the state the action q-value is being updated
-        self.action = None  # the agent action; direction from the state
-        self.food = self.FOOD_POS
-        self.reward = self.DEFAULT_REWARD
+        self.state, self.trophy_count, self.trophy = [], [], self.TROPHY_POS
+        self.agent = self.action = None  # the agent
 
     @abstractmethod
     def update_state(self):
@@ -88,44 +91,60 @@ class ReinforcementLearning:
             sleep(1 / self.SPEED)
             self.play_episode()
 
+        if self.PURE_RANDOM:
+            self.trophy = [randint(0, self.game.N - 1),
+                           randint(0, self.game.N - 1)]
+        elif not self.FIXED_TROPHY:
+            self.trophy = self.game.new_food()
+
     def init_snake(self):
         """
         Initializes the snake and game environment
         """
         self.game = Snake(True)
         self.game.restricted_learning = True
-        self.game.set_food(self.food)
+        self.game.set_food(self.trophy)
         self.trophy = self.game.food
 
         if not self.agent:
             self.game.set_snake()
+
+            if self.FIXED_AGENT:
+                self.game.snake = self.FIXED_AGENT_POS
             self.agent = self.game.snake
 
-            if len(self.agent) > self.SIZE:
+            if len(self.agent) > self.size:
                 self.agent.pop()
 
-            while len(self.agent) < self.SIZE:
+            while len(self.agent) < self.size:
                 self.game.add_tail(True)
 
     def learn(self):
         """
         Runs the Q-learning algorithm for number of given episodes
         """
-        for j in range(1, self.OPTIMAL_LEVELS + 1):
-            for i in range(1, self.EPISODES + 1):
-                system('clear')
-                print("Level " + str(j) + " of " + str(self.OPTIMAL_LEVELS)
-                      + ": Episode " + str(i) + " of " + str(self.EPISODES))
+        for j in range(1, self.levels + 1):
+
+            if j > 1:
+                if self.GROW:
+                    self.size += 1
+
+                if self.FIXED_TROPHY:
+                    self.trophy = self.game.new_food()
+
+            for i in range(1, self.episodes + 1):
+                if self.DISPLAY:
+                    system('clear')
+                    print("Level " + str(j) + " of " + str(self.levels) +
+                          ": Episode " + str(i) + " of " + str(self.episodes))
                 self.agent = None
                 self.init_snake()
                 self.game.snake_crashed = False
                 self.play_episode()
-            self.food = self.game.new_food()
-            self.rl_map_levels[j - 1] = self.rl_map
-            self.rl_map = [[[0] * 4 for _ in range(self.game.N)]
-                           for _ in range(self.game.N)]
-        with open(self.file, 'wb') as file:
-            dump(self.rl_map_levels, file)
+            self.rl_map_levels[0] = self.rl_map
+
+            with open(self.file[:-5] + str(j) + ".txt", 'wb') as file:
+                dump(self.rl_map_levels, file)
 
     def optimal_paths(self):
         """
@@ -135,24 +154,37 @@ class ReinforcementLearning:
         with open(self.file, 'rb') as handle:
             self.rl_map_levels = loads(handle.read())
 
-        for k in range(self.OPTIMAL_PATHS):
-            self.food = self.FOOD_POS
-            self.agent = None
+        if self.OPTIMAL_PATHS == self.game.N * self.game.N:
+            paths = [[i, j] for i in range(self.game.N)
+                     for j in range(self.game.N)]
 
-            for i in range(self.OPTIMAL_LEVELS):
-                print("Optimal path " + str(k + 1) + " -> level " + str(i + 1))
+        for k in range(self.OPTIMAL_PATHS):
+            self.trophy, self.agent = [5, 5], None
+
+            for i in range(self.levels):
                 self.rl_map = self.rl_map_levels[i]
 
+                if self.DISPLAY:
+                    print("Optimal path " + str(k + 1) + " -> level " +
+                          str(i + 1))
+
+                if self.OPTIMAL_PATHS == self.game.N * self.game.N:
+                    self.agent = [paths[k]]
+                else:
+                    self.agent = [self.trophy]
+
                 if i > 0:
-                    self.agent = [self.trophy] + \
-                                       self.game.snake[:self.SIZE + i - 1]
-                    self.food = self.game.new_food()
+                    self.agent += \
+                        self.game.snake[:(self.size - self.levels) + i]
+                    self.trophy = self.game.new_food()
                 self.init_snake()
-                self.game.snake = self.agent
-                self.agent = self.game.snake
+                self.agent = self.game.snake = self.agent
 
                 while self.agent[0] != self.trophy:
                     actions = [4]
+
+                    if self.agent[0] in self.agent[1:]:
+                        break
 
                     while True:
                         max_q_value = -inf
@@ -168,10 +200,15 @@ class ReinforcementLearning:
                         head_move = self.game.absolute_dirs(self.DIRS[self.
                                                             action])
 
-                        if head_move:
+                        if head_move and (0 <= head_move[0] < self.game.N) and\
+                                (0 <= head_move[1] < self.game.N):
                             self.agent[:0] = [head_move]
                             break
                         actions.append(self.action)
-                self.game.snake = self.game.snake[1:]
-                self.game.tail = self.agent[-1]
-                self.game.display_snake()
+
+                if len(self.agent) > 1:
+                    self.game.snake = self.game.snake[1:]
+
+                if len(self.agent) > 0 and self.DISPLAY:
+                    self.game.tail = self.agent[-1]
+                    self.game.display_snake()

@@ -10,12 +10,15 @@ class QLearning(ReinforcementLearning):
     Date: 05/05/2019
     """
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, episodes, levels, size):
         """
         Class initializer
         :param file_name: the name of the file the learning data is saved to
+        :param episodes: the number of learning episodes
+        :param levels: the number of snake game levels learned and played back
+        :param size: the size of the agent at learning initialization
         """
-        super().__init__(file_name)
+        super().__init__(file_name, episodes, levels, size)
 
     def update_state(self):
         """

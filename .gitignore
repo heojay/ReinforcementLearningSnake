@@ -2,3 +2,4 @@
 /snake1/venv/
 .idea/
 *.pyc
+/venv/
