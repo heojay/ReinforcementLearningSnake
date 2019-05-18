@@ -12,7 +12,8 @@ import random
 
 class SnakeQlearning:
     """
-    Snake game that uses Q-learning
+    Snake game that uses Q-learning.
+    All coordinates are in x,y order (col,row/width,height)
     Author: Johan Alfredeen
     Date: 2019-05-06
     """
@@ -166,11 +167,14 @@ class Qlearn:
         self.qmap = [[[0] * 4 for _ in range(height)]
                        for _ in range(width)]  # matrix of states: N E S W, init to 0 values
 
-    def get_index_max_value(self, row, col):
+    def get_statevalues(self, col, row):
+        return self.qmap[col][row]
+
+    def get_index_max_value(self, col, row):
         """
         :return: the index (N E S W) of the max value of the state cell
         """
-        values=self.qmap[col][row]
+        values=self.get_statevalues(col, row)  # TODO: check row/col
         return values.index(max(values))
 
     def update_state(self, reward, state, action_idx, nxt_state):
@@ -186,21 +190,60 @@ class Qlearn:
         :return: the new Q-value
         """
         oldval = self.qmap[state[0]][state[1]][action_idx]
-        learnedval = (reward + self.disc * max(nxt_state) )
+        nxt_vals = self.qmap[nxt_state[0]][nxt_state[1]]
+        print("oldval={0}".format(oldval))
+        print("max nxt={0}".format(max(nxt_vals)))
+        learnedval = (reward + self.disc * max(nxt_vals) ) # nxt_state should be coord
+        print("learnedval={0}".format(learnedval))
         qv = (1-self.lr) * oldval + self.lr * learnedval
         print("Q-value={0}".format(qv))
         return qv
 
-    def get_optimal_path(self):
+    def get_coord_next_max(self, coord):
         """
-        Determine the optimal path per game episode
-        :return: an ordered list of states
+        Gets the coord in the direction of the next max q-value
+        :return: a coord of x,y
         """
-        # TODO:
-        p=[]
-        #while True:
-        return p
+        col=coord[0]
+        row=coord[1]
+        maxidx=self.get_index_max_value(col,row)
+        if maxidx==0:
+            return [col,row-1] # north
+        elif maxidx==1:
+            return [col+1,row] # east
+        elif maxidx==2:
+            return [col,row+1] # south
+        elif maxidx==3:
+            return [col-1,row] # west
+        else:
+            raise Exception("Invalid q-value index in get_coord_next_max (not in 0:3)")
 
+    def is_valid_coord(self, coord):
+        if coord[0] < 0 or coord[0] > self.w:
+            return False
+        if coord[1] < 0 or coord[1] > self.h:
+            return False
+        return True
+
+    def get_optimal_path(self, startcoord, trophycoord):
+        """
+        Determine the optimal path per game episode given a starting state
+        :return: an ordered list of states (coord)
+        """
+        p=[]
+        p.append(startcoord)
+        i=0
+        while True:
+            coord=self.get_coord_next_max(startcoord)
+            if self.is_valid_coord(coord) == False:
+                raise Exception("Invalid next coordinate in get_optimal_path")
+            p.append(coord)
+            if coord == trophycoord:
+                return p
+            i+=1
+            if i>self.w*self.h:
+                raise Exception("No optimal path exists in this q-table")
+        return p
 
 
 
