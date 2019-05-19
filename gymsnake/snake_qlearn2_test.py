@@ -1,6 +1,7 @@
 # unit tests for snake_qlearn2
 
 import sys
+import numpy as np
 import snake_qlearn2
 
 
@@ -23,13 +24,31 @@ def test_possible_move_snake():
         print(app.snake.head)
         app.snake.head = [app.snake.head[0]+1, app.snake.head[1]]
         print(app.snake.head)
-        ##assert False, "Fake assert to make PyTest output prints"
+        #assert False, "Fake assert to make PyTest output prints"
+
+def test_metrics_equality():
+        app = snake_qlearn2.SnakeQlearning()
+        app.play_initgame()
+        print(app.gl_metrics['snakestart'])
+        print(app.snake.head)
+        assert np.array_equal(app.gl_metrics['snakestart'], app.snake.head) == False
+        #assert False, "Fake assert to make PyTest output prints"
+
+def test_np_array_equality():
+        a = [-1, 9]
+        b = np.array([-1, 2, 3])
+        assert np.array_equal(a, b) == False
+        b = np.array([-1, 2])
+        assert np.array_equal(a, b) == False
+        b = np.array([-1, 9])
+        assert np.array_equal(a, b) == True
 
 def test_metrics_dict():
         # to be used for per game level performance metrics
         d = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1, beststepstrophy=-1, avgrewardsperstep=0)
         print(d)
         #assert False, "Fake assert to make PyTest output prints"
+
 
 
 ## Test Qlearn

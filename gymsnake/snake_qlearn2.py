@@ -9,6 +9,7 @@ import gym
 import gym_snake
 import numpy as np
 import random
+import time
 
 class SnakeQlearning:
     """
@@ -22,9 +23,9 @@ class SnakeQlearning:
     GAMMA = 0.95  # discount
     EPSILON = 0.8  # exploration: greedy - random
     REWARD = 0  # default reward
-    EPISODES = 25  # number of episodes
-    MAX_EPISODE_TIMESTEPS = 100 # max number of timesteps (action moves) per episode
-    FRAME_SPEED = 0.001 # the frame speed for rendering (lower is faster)
+    EPISODES = 500  # number of episodes
+    MAX_EPISODE_TIMESTEPS = 500 # max number of timesteps (action moves) per episode
+    FRAME_SPEED = 0.0001 # the frame speed for rendering (lower is faster)
 
     def __init__(self):
         """
@@ -111,6 +112,7 @@ class SnakeQlearning:
     def play(self):
         """
         Plays a single game level of snake.
+        :return: the number of episodes run
         """
         self.gl_metrics['num_seq_episodes_success'] = 0 # the number of sequential episodes with success (find the trophy)
         for epi in range(1, self.EPISODES):
@@ -121,47 +123,59 @@ class SnakeQlearning:
             else:
                 self.gl_metrics['num_seq_episodes_success'] += 1
 
-            if self.gl_metrics['num_seq_episodes_success'] > 10:
+            if self.gl_metrics['num_seq_episodes_success'] > 20:
                 # Consider training done, converged
                 print("Completed training for this game level. Reached nr seq episodes.")
                 break
+            print("Episode:{0}, success:{1}, numseqsuccesses:{2}" .format(epi, success, self.gl_metrics['num_seq_episodes_success']))
         self.env.close()
-        print("Finished game level after {0} training episodes".format(epi))
+        return(epi)
 
     def play_episode(self):        
         """
         Plays a single episodes of game snake.
         An episode ends in one of following: find trophy, make invalid move/die, reach max timesteps
-        :return: boolean success or failure
+        :return: boolean success found trophy or failure
         """
         observation = self.env.reset()  # observation contains color
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
+
+        if np.array_equal(self.gl_metrics['snakestart'], [-1,-1]):
+            self.gl_metrics['snakestart'] = self.snake.head
+        elif np.array_equal(self.gl_metrics['snakestart'], self.snake.head) == False:
+            raise Exception("Snake starting location is not same as before!")
+
         state = self.snake.head # state is coord location of snake
         #print("state:{0}".format(state))
-
-        if self.gl_metrics['snakestart'] != self.snake.head:
-            raise Exception("Snake starting location is not same as before!")
 
         metrics = self.gl_metrics
         totalreward = 0
 
         for t in range(1, self.MAX_EPISODE_TIMESTEPS):
             self.env.render(frame_speed=self.frame_speed)
-            print("timestep t={}".format(t))
+            #print("timestep t={}".format(t))
             action = self.select_action() # select action from Q matrix
             if (action == None):
                 break
             observation, reward, done, _ = self.env.step(action)
-            print("reward:{0}, done:{1}".format(reward, done))
+            #print("reward:{0}, done:{1}".format(reward, done))
             nxt_state = self.snake.head
             #print("next state:{0}".format(nxt_state))
             totalreward += reward
             action_idx = self.convert_action_to_index(action)
-            # TODO: what should happen if we go out of bounds?
-            if state[0] < self.width and state[1] < self.height:
+            if self.q.is_valid_coord(state) == False:
+                print(done)
+                print(observation)
+                print(state)
+                raise Exception("state is an invalid coord, why here?")
+            if self.q.is_valid_coord(nxt_state) == False:
+                # The action moved the snake out of bounds
+                # Because the env sets done to true, set the q-value to -1 and run new episode
                 # TODO: also set -1 values without accessing out of bounds
-                self.q.update_state(reward, state, action_idx, nxt_state) # update the Q matrix
+                self.q.set_qvalue(-1, state, action_idx)
+                return 0
+            self.q.update_state(reward, state, action_idx, nxt_state) # update the Q matrix
             state = nxt_state
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
@@ -171,19 +185,14 @@ class SnakeQlearning:
                     return 1
                     #self.env.reset()
                 return 0
-            if state[0] >= self.width or state[1] >= self.height:
-                # why is this needed?
-                break
-            else:
-                # We finish the episode if we found the fruit
-                if reward == 1:
-                    # TODO: must solve the moving fruit!
-                    # Every time we eat the fruit the fruit moves
-                    print("FOUND THE FRUIT, end")
-                    #break
-                    #self.env.reset()
-                    self.gl_metrics['trophy']=self.snake.head
-                    return 1
+
+            # We finish the episode if we found the fruit
+            if reward == 1:
+                # Note that the env does not consider finding fruit to be done
+                # TODO: must solve the moving fruit!
+                # Every time we eat the fruit the fruit moves
+                self.gl_metrics['trophy']=self.snake.head
+                return 1
 
         print("Finished episode with total accumulated reward = {0}".format(totalreward))
         return 0
@@ -235,30 +244,32 @@ class Qlearn:
         """
         Updates the Q-value of a state
         """
-        self.qmap[state[0]][state[1]][action_idx] \
-            = self.get_update_qvalue(reward, state, action_idx, nxt_state)
+        qv = self.get_update_qvalue(reward, state, action_idx, nxt_state)
+        self.set_qvalue(qv, state, action_idx)
+
+    def set_qvalue(self, qvalue, state, action_idx):
+        self.qmap[state[0]][state[1]][action_idx] = qvalue
 
     def get_update_qvalue(self, reward, state, action_idx, nxt_state):
         """
         Calculates a new Q-value for a state
         :return: the new Q-value
         """
-        print("state:{0}".format(state))
-        print("nxt state:{0}".format(nxt_state))
+        #print("state:{0}".format(state))
+        #print("nxt state:{0}".format(nxt_state))
         oldval = self.qmap[state[0]][state[1]][action_idx]
-        print("oldval={0}".format(oldval))
-
+        #print("oldval={0}".format(oldval))
         if self.is_valid_coord(nxt_state):
             nxt_vals = self.qmap[nxt_state[0]][nxt_state[1]]
             nxt_max = max(nxt_vals)
-            print("max nxt={0}".format(nxt_max))
+            #print("max nxt={0}".format(nxt_max))
         else:
             nxt_max = -1
 
         learnedval = (reward + self.disc * nxt_max ) # nxt_state should be coord
-        print("learnedval={0}".format(learnedval))
+        #print("learnedval={0}".format(learnedval))
         qv = (1-self.lr) * oldval + self.lr * learnedval
-        print("Q-value={0}".format(qv))
+        #print("Q-value={0}".format(qv))
         return qv
 
     def get_coord_next_max(self, coord):
@@ -287,6 +298,18 @@ class Qlearn:
             return False
         return True
 
+    def get_num_nonzero_states(self):
+        """
+        Counts the number of states that are not entirely 0
+        :return: the number of non-zero states
+        """
+        num=0
+        for i in range(self.h):
+            for j in range(self.w):
+                if np.array_equal(self.qmap[i][j], [0,0,0,0]) == False:
+                    num += 1
+        return num
+
     def get_optimal_path(self, startcoord, trophycoord):
         """
         Determine the optimal path per game episode given a starting state
@@ -298,13 +321,12 @@ class Qlearn:
         i=0
         while True:
             coord=self.get_coord_next_max(coord)
-            print("Next max coord:{0}".format(coord))
             if self.is_valid_coord(coord) == False:
-                raise Exception("Invalid next coordinate in get_optimal_path")
+                raise Exception("No optimal path exists. Invalid next coordinate in get_optimal_path")
             if i>1 and coord==p[i-1]:
-                raise Exception("Invalid path (circular)")
+                raise Exception("No optimal path exists. Invalid path (circular)")
             p.append(coord)
-            if coord == trophycoord:
+            if np.array_equal(coord, trophycoord):
                 return p
             i+=1
             if i>self.w*self.h:
@@ -315,11 +337,22 @@ class Qlearn:
 
 
 if __name__ == "__main__":
+    start = time.time()
     app = SnakeQlearning()
-    app.play()
-    print("Q-values")
+    episodes = app.play()
+    end = time.time()
+    #print("Q-values")
     #app.display_qvalues()
     app.display_gl_metrics()
-    #print("Optimal path")
-    #path = app.q.get_optimal_path()
+    print("num_non_zero_states:{0}".format(app.q.get_num_nonzero_states()))
+    try:
+        print("Optimal path")
+        path = app.q.get_optimal_path(app.gl_metrics['snakestart'], app.gl_metrics['trophy'])
+        print(path)
+    except Exception as e:
+        print("Unable to determine best path from snake to trophy.")
+        print(e)
+
+    print("Finished game level after {0} training episodes".format(episodes))
+    print("Total play duration:{0} seconds" .format(end - start))    
 
