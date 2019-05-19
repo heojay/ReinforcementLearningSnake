@@ -12,6 +12,25 @@ def test_constr():
         app = snake_qlearn2.SnakeQlearning()
         assert isinstance(app, snake_qlearn2.SnakeQlearning)
 
+def test_possible_move_snake():
+        # test if it is possible to move the snake
+        app = snake_qlearn2.SnakeQlearning()
+        app.play_initgame()
+        app.snake.direction = app.snake.LEFT
+        print(app.snake.direction)
+        assert app.snake.direction == app.snake.LEFT
+        # TODO also test possible to move snake
+        print(app.snake.head)
+        app.snake.head = [app.snake.head[0]+1, app.snake.head[1]]
+        print(app.snake.head)
+        ##assert False, "Fake assert to make PyTest output prints"
+
+def test_metrics_dict():
+        # to be used for per game level performance metrics
+        d = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1, beststepstrophy=-1, avgrewardsperstep=0)
+        print(d)
+        #assert False, "Fake assert to make PyTest output prints"
+
 
 ## Test Qlearn
 width=10
@@ -47,11 +66,11 @@ def test_Qlearn_qmap():
                                 assert state[a] == 0
         ##assert False, "Fake assert to make PyTest output prints"
 
-def test_get_index_max_value():
+def test_Qlearn_get_index_max_value():
         q = _get_modified_Qlearn() # values set at row=4,col=5
         assert q.get_index_max_value(5, 4) == 1
 
-def test_get_update_qvalue():
+def test_Qlearn_get_update_qvalue():
         reward=1
         row=4
         col=5
@@ -69,29 +88,51 @@ def test_get_update_qvalue():
         assert qv == 0.9
         ##assert False, "Fake assert to make PyTest output prints"
 
-def test_get_optimal_path():
+def test_Qlearn_get_optimal_path():
         q = _get_a_Qlearn()
-        q.qmap[1][1]=[0,]
+        q.qmap[1][1]=[0,2,5,1]
+        q.qmap[1][2]=[2,6,0,4]
+        q.qmap[2][2]=[-1,0.2,0.8,0]
         startcoord=[1,1]
-        trophycoord=[3,3]
+        trophycoord=[2,3]
         expected_path=[[1,1],[1,2],[2,2],[2,3]]
         path=q.get_optimal_path(startcoord, trophycoord)
         print("path len:" + str(len(path)))
         assert len(path) > 0
         assert len(path) < (width*height)
+        assert len(path)==4
         assert path==expected_path
-        assert False, "Fake assert to make PyTest output prints"
+        #assert False, "Fake assert to make PyTest output prints"
 
-def test_get_coord_next_max():
+def test_Qlearn_get_coord_next_max():
         q = _get_modified_Qlearn() # values set at row=4,col=5
         assert q.get_coord_next_max([5,4]) == [6,4]
 
-def test_is_valid_coord():
+def test_Qlearn_is_valid_coord():
         q = _get_a_Qlearn()
         assert q.is_valid_coord([0,0])
         assert q.is_valid_coord([5,9])
         assert q.is_valid_coord([3,-1]) == False
         assert q.is_valid_coord([25,3]) == False
+        assert q.is_valid_coord([10,1]) == False
+        assert q.is_valid_coord([9,10]) == False
+
+def test_compare_list_equality():
+    a = []
+    b = []
+    assert a == b
+    c = [1]
+    d = [1]
+    assert c == d
+    e = [101,9]
+    f = [101,9]
+    assert e == f
+    g = [8,9]
+    h = [7,4]
+    assert g != h
+    i = [1]
+    j = [5,6]
+    assert i != j
 
 
 # private methods

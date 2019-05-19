@@ -11,6 +11,7 @@ import gym_snake
 
 
 EPISODES = 20  # number of episodes
+FRAME_SPEED = 0.01 # the frame speed for rendering
 
 
 def select_action(snake_object, coord_food):
@@ -71,7 +72,7 @@ for i_episode in range(EPISODES):
 
     prev_action = 0
     for t in range(100):
-        env.render(frame_speed=.01)
+        env.render(frame_speed=FRAME_SPEED)
         print("interval t={}".format(t))
         #print(observation)
         action = select_action(snake_object1, coord_food)

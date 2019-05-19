@@ -5,14 +5,17 @@
 import gym
 import gym_snake
 
+MAX_TIMESTEPS = 100
+FRAME_SPEED = 0.1
+
 env = gym.make('snake-v0')
 env.n_foods = 1
 env.random_init = False
 observation = env.reset()
 
-for t in range(100):
-    env.render()
-    print("interval t={}".format(t))
+for t in range(MAX_TIMESTEPS):
+    env.render(frame_speed=FRAME_SPEED)
+    print("timestep t={}".format(t))
     print(observation)
     action = env.action_space.sample() # take a random action
     observation, reward, done, info = env.step(action)
