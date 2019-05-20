@@ -1,13 +1,15 @@
-# Uses the OpenAI gym from
+# Uses a modified verson of the OpenAI gym from
 #   https://github.com/grantsrb/Gym-Snake
 # This is a blind version Q-learning version
 # Note that this only works for one food goal
-# In this version the snake starting location is fixed
+# In this version the snake starting position is random
+# In this version the trophy position is controlled
 
 import gym
 import gym_snake
 import numpy as np
-import random
+from pickle import loads, dump
+from random import randint, random
 import time
 
 class SnakeQlearning:
@@ -15,36 +17,41 @@ class SnakeQlearning:
     Snake game that uses Q-learning.
     All coordinates are in x,y order (col,row/width,height)
     Author: Johan Alfredeen
-    Date: 2019-05-06
+    Date: 2019-05-19
     """
 
     ETA = 0.2  # learning rate
     GAMMA = 0.95  # discount
     STARTING_EPSILON = 0.9  # exploration: greedy - random, epsilon value at beginning
-    MIN_EPSILON = 0.2       # minimum exploration (toward end of training)
-    REWARD = 0  # default reward # TODO: not used
-    EPISODES = 100  # number of episodes
-    MAX_EPISODE_TIMESTEPS = 500 # max number of timesteps (action moves) per episode
-    FRAME_SPEED = 0.0001 # the frame speed for rendering (lower is faster)
+    MIN_EPSILON = 0.2  # minimum exploration (toward end of training)
+    EPISODES = 5  # number of episodes
+    MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
+    FRAME_SPEED = 0.0001  # the frame speed for rendering (lower is faster)
+    TROPHY_POS = [2, 3]  # the trophy pos at initialization
+    DEBUG = True  # The verbosity level for logging
 
-    def __init__(self):
+    def __init__(self, fixed_snake=False):
         """
         Class Initializer
+        :param fixed_snake: controlls whether the snake startin position is fixed or random.
         """
-        self.env = gym.make('snake-v0')
+        self.env = gym.make('snake-mod19-v0')
         self.env.n_foods = 1
         self.env.grid_size = [10,10]
         self.env.snake_size = 2
         #self.env.unit_size = 4
         #self.env.unit_gap = 1
         self.env.random_init = False # If set to false, the food units initialize to the same location at each reset
+        self.fixed_snake = fixed_snake
         self.frame_speed = self.FRAME_SPEED
         self.epsilon = self.STARTING_EPSILON
 
         self.snake = None
+        self.trophy_pos = self.TROPHY_POS
         self.width = self.env.grid_size[0]
         self.height = self.env.grid_size[1]
-        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA, self.epsilon, self.REWARD)
+        self.log = []
+        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA, self.epsilon, 0)
         self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1],
             disttotrophy=-1, beststepstrophy=-1, avgrewardsperstep=0, num_seq_episodes_success=0)
 
@@ -53,10 +60,10 @@ class SnakeQlearning:
         Select an action with a probability of epsilon of choosing max Q-value
         :return: an action index
         """
-        if random.randint(0,100) < self.epsilon * 100:
+        if randint(0,100) < self.epsilon * 100:
             # Explore
             # select a random direction including the max
-            idx = random.randint(0,3) 
+            idx = randint(0,3) 
         else:
             # use the direction of the max-value
             idx = self.q.get_index_max_value(self.snake.head[0], self.snake.head[1])
@@ -117,9 +124,13 @@ class SnakeQlearning:
         Plays a single game level of snake.
         :return: the number of episodes run
         """
+        msg = str.format("Start run of snake_qlearn_mod19 at {0}, using epsilon decay, eta:{1}, gamma:{2}", \
+            time.strftime('%m-%d-%Y %H:%M:%S'), self.ETA, self.GAMMA)
+        self._log(msg, screen=True)
+
+        # TODO: to support multiple game levels: implement new food positions, save to file
         self.gl_metrics['num_seq_episodes_success'] = 0 # the number of sequential episodes with success (find the trophy)
         for epi in range(1, self.EPISODES+1):
-            # todo: could put a try-catch here
             success = self.play_episode()
             if success == 0:
                 self.gl_metrics['num_seq_episodes_success'] = 0
@@ -128,38 +139,74 @@ class SnakeQlearning:
 
             if self.gl_metrics['num_seq_episodes_success'] > 20:
                 # Consider training done, converged
-                print("Completed training for this game level. Reached nr seq episodes.")
+                self._log("Completed training for this game level. Reached nr seq episodes.", True)
                 break
 
             if self.epsilon>self.MIN_EPSILON and epi>(self.EPISODES*0.1) and epi%10 == 0:
                 # epsilon decay after the first 10pct episodes
                 self.epsilon -= 10*(self.STARTING_EPSILON-self.MIN_EPSILON)/(self.EPISODES*0.9)
 
-            print("Episode:{0}, success:{1}, numseqsuccesses:{2}, epsilon:{3}"
-                .format(epi, success, self.gl_metrics['num_seq_episodes_success'], self.epsilon))
+            self._log("Episode:{0}, success:{1}, numseqsuccesses:{2}, epsilon:{3}"
+                .format(epi, success, self.gl_metrics['num_seq_episodes_success'], round(self.epsilon,4)), True)
         self.env.close()
+        self._log(str.format("Finished RL Q-learning with metrics:{0}",self.gl_metrics), screen=True)
+        self._log(str.format("num_non_zero_states:{0}", self.q.get_num_nonzero_states()))
         return(epi)
 
-    def play_episode(self):        
+    def get_new_snake_start_coord(self):
+        """
+        Gets a new valid starting coordinate for the snake
+        :return: a new coordinate
+        """
+        # TODO: unit test
+        snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+        while snake_coord == self.trophy_pos:
+            snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+        return snake_coord
+
+    def play_episode(self):
         """
         Plays a single episodes of game snake.
         An episode ends in one of following: find trophy, make invalid move/die, reach max timesteps
         :return: boolean success found trophy or failure
         """
+        self.env.food_pos = self.trophy_pos
+
+        if not self.fixed_snake:
+            self.env.start_coord = self.get_new_snake_start_coord()
+
         observation = self.env.reset()  # observation contains color
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
 
-        # Here we would like to position the snake in a new random location,
-        # but this does not seem to be possible with this snake gym version.
+        self._log("Reset. Food position:{0}, snake head position {1}, previous start coord:{2}"
+            .format(game_controller.grid.food_pos, self.snake.head, self.gl_metrics['snakestart']), True)
 
+        if not np.array_equal(game_controller.grid.food_pos, self.trophy_pos):
+            self._log("WARNING !!!  env food position is not equal to trophy position. Ending this episode.", True)
+            return 0
+
+        #assert np.array_equal(game_controller.grid.food_pos, self.trophy_pos)
+
+        if not self.fixed_snake:
+            assert np.array_equal(self.snake.head, self.env.start_coord)
+
+        self.gl_metrics['trophy'] = self.trophy_pos
+        self.gl_metrics['snakestart'] = self.snake.head
+
+        """
         if np.array_equal(self.gl_metrics['snakestart'], [-1,-1]):
+            # First run
             self.gl_metrics['snakestart'] = self.snake.head
-        elif np.array_equal(self.gl_metrics['snakestart'], self.snake.head) == False:
+        elif np.array_equal(self.gl_metrics['snakestart'], self.snake.head):
+            self.gl_metrics['snakestart'] = self.snake.head
+            raise Exception("Snake starting location is same as before!")
+        elif not np.array_equal(self.gl_metrics['snakestart'], self.snake.head):
             raise Exception("Snake starting location is not same as before!")
+        """
 
         state = self.snake.head # state is coord location of snake
-        #print("state:{0}".format(state))
+        #self._log_debug("state:{0}".format(state))
 
         metrics = self.gl_metrics
         totalreward = 0
@@ -167,21 +214,21 @@ class SnakeQlearning:
         for t in range(1, self.MAX_EPISODE_TIMESTEPS+1):
             self.env.render(frame_speed=self.frame_speed)
             action = self.select_action() # select action from Q matrix
-            if (action == None):
+            if (action is None):
                 #break
-                raise Exception("Do we ever enter here? action == None")
+                raise Exception("Do we ever enter here? action is None")
             observation, reward, done, _ = self.env.step(action)
-            #print("reward:{0}, done:{1}".format(reward, done))
+            self._log_debug("reward:{0}, done:{1}".format(reward, done))
             nxt_state = self.snake.head
-            #print("next state:{0}".format(nxt_state))
+            #self._log_debug("next state:{0}".format(nxt_state))
             totalreward += reward
             action_idx = self.convert_action_to_index(action)
-            if self.q.is_valid_coord(state) == False:
-                print(done)
-                print(observation)
-                print(state)
+            if not self.q.is_valid_coord(state):
+                self._log_debug(done)
+                self._log_debug(observation)
+                self._log_debug(state)
                 raise Exception("state is an invalid coord, why here?")
-            if self.q.is_valid_coord(nxt_state) == False:
+            if not self.q.is_valid_coord(nxt_state):
                 # The action moved the snake out of bounds
                 # Because the env sets done to true, set the q-value to -1 and run new episode
                 self.q.set_qvalue(-1, state, action_idx)
@@ -189,12 +236,10 @@ class SnakeQlearning:
             self.q.update_state(reward, state, action_idx, nxt_state) # update the Q matrix
             state = nxt_state
             if done:
-                print("Episode finished after {} timesteps".format(t+1))
+                self._log_debug("Episode finished after {} timesteps. done=True".format(t+1))
                 if reward == 1:
                     print("FOUND THE FRUIT, done")
-                    self.gl_metrics['trophy']=self.snake.head
                     return 1
-                    #self.env.reset()
                 return 0
 
             # We finish the episode if we found the fruit
@@ -202,10 +247,9 @@ class SnakeQlearning:
                 # Note that the env does not consider finding fruit to be done
                 # TODO: must solve the moving fruit!
                 # Every time we eat the fruit the fruit moves
-                self.gl_metrics['trophy']=self.snake.head
                 return 1
 
-        print("Finished episode with total accumulated reward = {0}".format(totalreward))
+        self._log_debug("Finished episode with total accumulated reward = {0}".format(totalreward))
         return 0
 
     def play_minigame(self):
@@ -214,9 +258,24 @@ class SnakeQlearning:
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
         for t in range(2):
-                print("timestep t={}".format(t))
-                self.env.render(frame_speed=self.frame_speed)
+            print("timestep t={}".format(t))
+            self.env.render(frame_speed=self.frame_speed)
         self.env.close()
+
+    def save_log(self, path):
+        with open(path, 'w') as file:
+            for msg in self.log:
+                file.write(msg + '\n')
+
+    def _log(self, msg, screen=False, is_debug=False):
+        if not self.DEBUG or not is_debug:
+            self.log.append(msg)
+            if screen:
+                print(msg)
+
+    def _log_debug(self, msg):
+        self._log(msg, screen=False, is_debug=True)
+
 
 
 class Qlearn:
@@ -317,7 +376,7 @@ class Qlearn:
         num=0
         for i in range(self.h):
             for j in range(self.w):
-                if np.array_equal(self.qmap[i][j], [0,0,0,0]) == False:
+                if not np.array_equal(self.qmap[i][j], [0,0,0,0]):
                     num += 1
         return num
 
@@ -332,7 +391,7 @@ class Qlearn:
         i=0
         while True:
             coord=self.get_coord_next_max(coord)
-            if self.is_valid_coord(coord) == False:
+            if not self.is_valid_coord(coord):
                 raise Exception("No optimal path exists. Invalid next coordinate in get_optimal_path")
             if i>1 and coord==p[i-1]:
                 raise Exception("No optimal path exists. Invalid path (circular)")
@@ -344,18 +403,22 @@ class Qlearn:
                 raise Exception("No optimal path exists in this q-table for starting coord {0}".format(startcoord))
         return p
 
+            
 
 
 
 if __name__ == "__main__":
     start = time.time()
-    app = SnakeQlearning()
+    app = SnakeQlearning(False)
     episodes = app.play()
     end = time.time()
+    file_name = str.format("rl_gymsnake_mod19_{0}.log", time.strftime('%Y%m%d_%H%M%S'))
+    app.save_log(str.format("C:/Dev/logs/{0}", file_name))
     #print("Q-values")
     #app.display_qvalues()
-    app.display_gl_metrics()
-    print("num_non_zero_states:{0}".format(app.q.get_num_nonzero_states()))
+    #app.display_gl_metrics()
+    #print("num_non_zero_states:{0}".format(app.q.get_num_nonzero_states()))
+    print("Now verifying the training using all states: TODO:")
     try:
         path = app.q.get_optimal_path(app.gl_metrics['snakestart'], app.gl_metrics['trophy'])
         print("Optimal path 1:{0}".format(path))

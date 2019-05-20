@@ -13,17 +13,27 @@ def test_constr():
         app = snake_qlearn2.SnakeQlearning()
         assert isinstance(app, snake_qlearn2.SnakeQlearning)
 
-def test_possible_move_snake():
-        # test if it is possible to move the snake
+def test_possible_change_snake_direction():
         app = snake_qlearn2.SnakeQlearning()
         app.play_initgame()
         app.snake.direction = app.snake.LEFT
         print(app.snake.direction)
-        assert app.snake.direction == app.snake.LEFT
-        # TODO also test possible to move snake
+        #assert app.snake.direction == app.snake.LEFT
+
+def test_possible_move_snake():
+        # test if it is possible to move the snake
+        app = snake_qlearn2.SnakeQlearning()
+        app.play_initgame()
         print(app.snake.head)
-        app.snake.head = [app.snake.head[0]+1, app.snake.head[1]]
+        print(app.snake.body)
+        """
+        app.snake.head = [2,1]
         print(app.snake.head)
+        app.snake.body = [1,1]
+        print(app.snake.body)
+        """
+        app.env.controller.move_snake(app.snake.LEFT, 0)
+        app.env.controller.move_snake(app.snake.LEFT, 0)
         #assert False, "Fake assert to make PyTest output prints"
 
 def test_metrics_equality():
