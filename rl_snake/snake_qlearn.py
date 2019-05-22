@@ -427,7 +427,7 @@ class Qlearn:
         return num
 
     def check_all_states_nonzero(self):
-        return app.q.get_num_nonzero_states() == app.width*app.height - 1
+        return self.get_num_nonzero_states() == self.w*self.h - 1
 
     def get_optimal_path(self, startcoord, trophycoord):
         """
@@ -526,34 +526,3 @@ class Qlearn:
         return coords
 
             
-
-
-if __name__ == "__main__":
-    start = time.time()
-    app = SnakeQlearning(fixed_snake=False, display=False)
-    episodes = app.train()
-    end = time.time()
-    file_name = str.format("rl_gymsnake_{0}.log", time.strftime('%Y%m%d_%H%M%S'))
-    #app.save_log(str.format("C:/Dev/logs/{0}", file_name))
-
-    #app.display_qvalues()
-    #qpath = 'C:/Dev/logs/rl_snake_qdata.txt'
-    #app.save_qdata(qpath)
-
-    if not app.q.check_all_states_nonzero():
-        print("Training did not succeed. All states are not non zero.")
-
-    if app.q.check_all_states_nonzero():
-        print("Now verifying the training using all states")    
-        try:
-            invalid_states = app.q.verify_all_states(app.gl_metrics['trophy'])
-            print("The number of states with invalid paths:{0}. {1}".format(len(invalid_states), invalid_states))
-        except Exception as e:
-            print("Unable to determine best path from snake to trophy.")
-            print(e)
-
-        print("Finished game level after {0} training episodes".format(episodes))
-
-    app.plot_training_scores()
-    print("Total train duration:{0} seconds" .format(round(end - start, 3)))
-
