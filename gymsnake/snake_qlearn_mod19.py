@@ -26,8 +26,8 @@ class SnakeQlearning:
 
     ETA = 0.1  # learning rate
     GAMMA = 0.95  # discount
-    STARTING_EPSILON = 0.8  # exploration: greedy - random, epsilon value at beginning
-    MIN_EPSILON = 0.2  # minimum exploration (toward end of training)
+    STARTING_EPSILON = 0.9  # exploration: greedy - random, epsilon value at beginning
+    MIN_EPSILON = 0.5  # minimum exploration (toward end of training)
     EPISODES = 10000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
@@ -57,10 +57,11 @@ class SnakeQlearning:
         self.height = self.env.grid_size[1]
         self.score_per_episode = []
         self.score_per_episode_x = []
+        self.n_invalid_paths_per_episode = []
         self.log = []
         self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA, self.epsilon, 0)
-        self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1,
-            beststepstrophy=-1, avgrewardsperstep=0, num_seq_episodes_success=0, last_score=0)
+        self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1, 
+            num_seq_episodes_success=0, last_score=0, last_n_invalid_paths=-1)
 
     def select_action(self):
         """
@@ -141,21 +142,26 @@ class SnakeQlearning:
             else:
                 self.gl_metrics['num_seq_episodes_success'] += 1
 
+            """
             if self.gl_metrics['num_seq_episodes_success'] > 50 and self.q.check_all_states_nonzero():
                 # Consider training done, converged
                 self._log("Completed training for this game level. Reached nr seq episodes.", True)
                 break
+            """
 
-            self.q.calc_current_score(self.trophy_pos)
             if epi%self.score_freq == 0:
                 try:
-                    score = self.q.calc_current_score(self.trophy_pos)
+                    score = round(self.q.calc_current_score(self.trophy_pos), 3)
                 except:
                     score = -1
                 self.gl_metrics['last_score'] = score
                 self.score_per_episode.append(score)
                 self.score_per_episode_x.append(epi)
-                if score==100 and self.q.check_all_states_nonzero() and epi<self.EPISODES:
+                n_invalid_paths = len(self.q.verify_all_states(self.trophy_pos))
+                self.gl_metrics['last_n_invalid_paths'] = n_invalid_paths
+                self.n_invalid_paths_per_episode.append(n_invalid_paths)
+                #if score>90 and n_invalid_paths==0 and epi<self.EPISODES:
+                if 1==0 and n_invalid_paths==0 and epi<self.EPISODES:
                     # Early stopping
                     self._log("Completed training for this game level. All states are trained.", True)
                     break
@@ -166,9 +172,9 @@ class SnakeQlearning:
                 if self.epsilon < self.MIN_EPSILON:
                     self.epsilon = self.MIN_EPSILON
 
-            self._log("Episode:{0}, success:{1}, numseqsuccesses:{2}, last score:{3}, epsilon:{4}"
+            self._log("Episode:{0}, success:{1}, numseqsuccesses:{2}, last score:{3}, last nrinvalidpaths:{4} epsilon:{5}"
                 .format(epi, success, self.gl_metrics['num_seq_episodes_success'],
-                    self.gl_metrics['last_score'], round(self.epsilon,4)), True)
+                    self.gl_metrics['last_score'], self.gl_metrics['last_n_invalid_paths'], round(self.epsilon,4)), True)
 
         self.env.close()
         self._log(str.format("Finished RL Q-learning with metrics:{0}",self.gl_metrics), screen=True)
@@ -202,7 +208,7 @@ class SnakeQlearning:
         self.snake = game_controller.snakes[0]
 
         self._log("Reset. Food position:{0}, snake head position {1}, previous start coord:{2}"
-            .format(game_controller.grid.food_pos, self.snake.head, self.gl_metrics['snakestart']), True)
+            .format(game_controller.grid.food_pos, self.snake.head, self.gl_metrics['snakestart']), screen=False)
 
         if not np.array_equal(game_controller.grid.food_pos, self.trophy_pos):
             self._log("WARNING !!!  env food position is not equal to trophy position. Ending this episode.", True)
@@ -290,18 +296,30 @@ class SnakeQlearning:
         #with open(self.file, 'rb') as handle:
         #   self.q.qmap = loads(handle.read())
 
-    def display_training_scores(self):
+    def plot_training_scores(self):
         """
         Displays a graph with the resulting training score.
         """
-        fig = plt.figure()
+        fig, ax1 = plt.subplots()
+
+        #fig = plt.figure()
         fig.canvas.set_window_title('Figure RL snake training scores')
-        plt.plot(self.score_per_episode_x, self.score_per_episode)
+
         plt.title('Training scores')
         fig.suptitle('Q-Learning')
         plt.xlabel('episode')
-        plt.ylabel('% shortest path')
-        plt.ylim(-10, 101)
+        
+        color = 'tab:blue'
+        ax1.set_ylabel('% shortest path', color=color)
+        ax1.set_ylim(-10, 101)
+        ax1.plot(self.score_per_episode_x, self.score_per_episode)
+
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+        color = 'tab:red'
+        ax2.set_ylabel('Nr of states with invalid path', color=color)
+        ax2.set_ylim(0, self.width*self.height)
+        ax2.plot(self.score_per_episode_x, self.n_invalid_paths_per_episode, color=color)
         plt.show()
 
     def save_qdata(self, path):
@@ -379,14 +397,13 @@ class Qlearn:
         if self.is_valid_coord(nxt_state):
             nxt_vals = self.qmap[nxt_state[0]][nxt_state[1]]
             nxt_max = max(nxt_vals)
-            #print("max nxt={0}".format(nxt_max))
         else:
             nxt_max = -1
 
-        learnedval = (reward + self.disc * nxt_max ) # nxt_state should be coord
-        #print("learnedval={0}".format(learnedval))
+        learnedval = (reward + self.disc * nxt_max )
+        #print("reward:{0}, disc:{1}, nxtmax:{2}".format(reward, self.disc, nxt_max))
         qv = (1-self.lr) * oldval + self.lr * learnedval
-        #print("Q-value={0}".format(qv))
+        #print("lr:{0}, oldval:{1}, learnedval:{2}".format(self.lr, oldval, learnedval))
         return qv
 
     def get_coord_next_max(self, coord):
@@ -535,7 +552,7 @@ if __name__ == "__main__":
     episodes = app.train()
     end = time.time()
     file_name = str.format("rl_gymsnake_mod19_{0}.log", time.strftime('%Y%m%d_%H%M%S'))
-    app.save_log(str.format("C:/Dev/logs/{0}", file_name))
+    #app.save_log(str.format("C:/Dev/logs/{0}", file_name))
 
     #print("Q-values")
     #app.display_qvalues()
@@ -562,6 +579,6 @@ if __name__ == "__main__":
     print(app.score_per_episode)
     print(app.score_per_episode_x)
 
-    app.display_training_scores()
+    app.plot_training_scores()
 
 
