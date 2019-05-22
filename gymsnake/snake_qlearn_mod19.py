@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Uses a modified verson of the OpenAI gym from
 #   https://github.com/grantsrb/Gym-Snake
 # This is a blind version Q-learning version
@@ -8,9 +10,11 @@
 import gym
 import gym_snake
 import numpy as np
+import time
+import matplotlib.pyplot as plt
 from pickle import loads, dump
 from random import randint, random
-import time
+
 
 class SnakeQlearning:
     """
@@ -24,11 +28,12 @@ class SnakeQlearning:
     GAMMA = 0.95  # discount
     STARTING_EPSILON = 0.8  # exploration: greedy - random, epsilon value at beginning
     MIN_EPSILON = 0.2  # minimum exploration (toward end of training)
-    EPISODES = 10000  # number of episodes
+    EPISODES = 10000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
     FRAME_SPEED = 0.0001  # the frame speed for rendering (lower is faster)
     TROPHY_POS = [2, 3]  # the trophy pos at initialization
+    SNAKE_SIZE = 2  # the length of the snake
     DEBUG = False  # The verbosity level for logging
 
     def __init__(self, fixed_snake=False, display=True):
@@ -38,22 +43,24 @@ class SnakeQlearning:
         """
         self.env = gym.make('snake-mod19-v0')
         self.env.n_foods = 1
-        self.env.grid_size = [10,10]
-        self.env.snake_size = 2
+        self.env.grid_size = [15,15]
         self.env.random_init = False # If set to false, the food units initialize to the same location at each reset
+        self.env.snake_size = self.SNAKE_SIZE
         self.fixed_snake = fixed_snake
-        self.display = display
-        self.frame_speed = self.FRAME_SPEED
+        self.display = display # If dislay snake game, then training score plot is not displayed
         self.epsilon = self.STARTING_EPSILON
+        self.score_freq = self.EPISODES / 10
 
         self.snake = None
         self.trophy_pos = self.TROPHY_POS
         self.width = self.env.grid_size[0]
         self.height = self.env.grid_size[1]
+        self.score_per_episode = []
+        self.score_per_episode_x = []
         self.log = []
         self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA, self.epsilon, 0)
-        self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1],
-            disttotrophy=-1, beststepstrophy=-1, avgrewardsperstep=0, num_seq_episodes_success=0)
+        self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1,
+            beststepstrophy=-1, avgrewardsperstep=0, num_seq_episodes_success=0, last_score=0)
 
     def select_action(self):
         """
@@ -139,14 +146,30 @@ class SnakeQlearning:
                 self._log("Completed training for this game level. Reached nr seq episodes.", True)
                 break
 
+            self.q.calc_current_score(self.trophy_pos)
+            if epi%self.score_freq == 0:
+                try:
+                    score = self.q.calc_current_score(self.trophy_pos)
+                except:
+                    score = -1
+                self.gl_metrics['last_score'] = score
+                self.score_per_episode.append(score)
+                self.score_per_episode_x.append(epi)
+                if score==100 and self.q.check_all_states_nonzero() and epi<self.EPISODES:
+                    # Early stopping
+                    self._log("Completed training for this game level. All states are trained.", True)
+                    break
+
             if self.epsilon>self.MIN_EPSILON and epi>=(self.EPISODES*0.2) and epi%10 == 0:
                 # epsilon decay after the first 20pct episodes, reach min after about 75%
                 self.epsilon -= 10*(self.STARTING_EPSILON-self.MIN_EPSILON)/(self.EPISODES*0.55)
                 if self.epsilon < self.MIN_EPSILON:
                     self.epsilon = self.MIN_EPSILON
 
-            self._log("Episode:{0}, success:{1}, numseqsuccesses:{2}, epsilon:{3}"
-                .format(epi, success, self.gl_metrics['num_seq_episodes_success'], round(self.epsilon,4)), True)
+            self._log("Episode:{0}, success:{1}, numseqsuccesses:{2}, last score:{3}, epsilon:{4}"
+                .format(epi, success, self.gl_metrics['num_seq_episodes_success'],
+                    self.gl_metrics['last_score'], round(self.epsilon,4)), True)
+
         self.env.close()
         self._log(str.format("Finished RL Q-learning with metrics:{0}",self.gl_metrics), screen=True)
         self._log(str.format("num_non_zero_states:{0}", self.q.get_num_nonzero_states()))
@@ -197,7 +220,7 @@ class SnakeQlearning:
         for t in range(1, self.MAX_EPISODE_TIMESTEPS+1):
             
             if display:
-                self.env.render(frame_speed=self.frame_speed)
+                self.env.render(frame_speed=self.FRAME_SPEED)
             
             action = self.select_action() # select action from Q matrix
             if (action is None):
@@ -249,7 +272,7 @@ class SnakeQlearning:
         for t in range(2):
             print("timestep t={}".format(t))
             if self.display:
-                self.env.render(frame_speed=self.frame_speed)
+                self.env.render(frame_speed=self.FRAME_SPEED)
         self.env.close()
 
     def play_initgame(self):
@@ -266,6 +289,20 @@ class SnakeQlearning:
         pass
         #with open(self.file, 'rb') as handle:
         #   self.q.qmap = loads(handle.read())
+
+    def display_training_scores(self):
+        """
+        Displays a graph with the resulting training score.
+        """
+        fig = plt.figure()
+        fig.canvas.set_window_title('Figure RL snake training scores')
+        plt.plot(self.score_per_episode_x, self.score_per_episode)
+        plt.title('Training scores')
+        fig.suptitle('Q-Learning')
+        plt.xlabel('episode')
+        plt.ylabel('% shortest path')
+        plt.ylim(-10, 101)
+        plt.show()
 
     def save_qdata(self, path):
         with open(path, 'wb') as file:
@@ -306,6 +343,7 @@ class Qlearn:
         self.disc = disc
         self.expl = expl
         self.reward = reward
+        self.n_play_coords = -1
         self.qmap = [[[0] * 4 for _ in range(height)]
                        for _ in range(width)]  # matrix of states: N E S W, init to 0 values
 
@@ -426,15 +464,54 @@ class Qlearn:
         """
         states = []
         coords = self.get_play_coords(trophy_pos)
-        for i in range(len(states)):
+        for i in range(len(coords)):
             coord = coords[i]
             try:
                 path = self.get_optimal_path(coord, trophy_pos)
-                print("Optimal path for {0} is {2}".format(coord, path))
+                #print("Optimal path for {0} is {2}".format(coord, path))
             except Exception as e:
                 states.append(coord)
                 print(e)
         return states
+
+    def get_num_states_optimal_path(self, trophy_pos):
+        """
+        Gets the number of states with optimal paths to the trophy
+        Note that scenarios where if by chance all equal max values result in shortest
+        path are counted as optimal path.
+        :return: an integer number of states
+        """
+        n_optimal=0
+        coords=self.get_play_coords(trophy_pos)
+        for i in range(len(coords)):
+            coord = coords[i]
+            try:
+                path = self.get_optimal_path(coord, trophy_pos)
+                if len(path)-1 == self._calc_shortest_dist(coord, trophy_pos):
+                    #print("State with optimal path:{0}, dist:{1}".format(coord,len(path)-1))
+                    n_optimal += 1
+            except:
+                pass
+        return n_optimal
+
+    def calc_current_score(self, trophy_pos):
+        """
+        Calculate the current training score as percent of states with optimal paths
+        :return: the numeric score
+        """
+        n_total = self.get_num_play_coords(trophy_pos)
+        n_optimal = self.get_num_states_optimal_path(trophy_pos)
+        return n_optimal / n_total * 100
+
+    def _calc_shortest_dist(self, coord, trophy_pos):
+        d1=abs(trophy_pos[0]-coord[0])
+        d2=abs(trophy_pos[1]-coord[1])
+        return d1+d2
+
+    def get_num_play_coords(self, trophy_pos):
+        if self.n_play_coords == -1:
+            self.n_play_coords = len(self.get_play_coords(trophy_pos))
+        return self.n_play_coords
 
     def get_play_coords(self, trophy_pos):
         """
@@ -461,8 +538,8 @@ if __name__ == "__main__":
     app.save_log(str.format("C:/Dev/logs/{0}", file_name))
 
     #print("Q-values")
-    app.display_qvalues()
-    qpath = 'C:/Dev/logs/rl_snake_qdata.txt'
+    #app.display_qvalues()
+    #qpath = 'C:/Dev/logs/rl_snake_qdata.txt'
     #app.save_qdata(qpath)
     #app.display_gl_metrics()
     #print("num_non_zero_states:{0}".format(app.q.get_num_nonzero_states()))
@@ -481,4 +558,10 @@ if __name__ == "__main__":
 
         print("Finished game level after {0} training episodes".format(episodes))
         print("Total train duration:{0} seconds" .format(round(end - start, 3)))
+
+    print(app.score_per_episode)
+    print(app.score_per_episode_x)
+
+    app.display_training_scores()
+
 
