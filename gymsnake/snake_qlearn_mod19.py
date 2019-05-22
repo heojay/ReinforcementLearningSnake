@@ -27,7 +27,7 @@ class SnakeQlearning:
     ETA = 0.1  # learning rate
     GAMMA = 0.95  # discount
     STARTING_EPSILON = 0.9  # exploration: greedy - random, epsilon value at beginning
-    MIN_EPSILON = 0.5  # minimum exploration (toward end of training)
+    MIN_EPSILON = 0.9  # minimum exploration (toward end of training)
     EPISODES = 10000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
