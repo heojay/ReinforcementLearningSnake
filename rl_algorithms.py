@@ -11,14 +11,14 @@ class ReinforcementLearningAlgorithms:
     """
     Class for reinforcement learning algorithms in snake game environment
     Author: Adam Ross
-    Date: 16/05/2019
+    Date: 22/05/2019
     """
 
-    SIZE = 1  # the initial size of the snake/agent whether playing or learning
-    LEVELS = 2  # the number of snake game levels being learned
+    SIZE = 5  # the initial size of the snake/agent whether playing or learning
+    LEVELS = 1  # the number of snake game levels being learned
     EPISODES = 15000  # the number of learning episodes per snake game level
-    Q_LEARNING_FILE = 'q-learning_L1.txt'
-    SARSA_FILE = 'sarsa_L1.txt'
+    Q_LEARNING_FILE = 'q-learning_L5.txt'
+    SARSA_FILE = 'sarsa_L5.txt'
 
     def __init__(self):
         """
@@ -66,6 +66,65 @@ class ReinforcementLearningAlgorithms:
             self.snake.add_tail(True)
         self.snake.go()
 
+    def plot_learning(self, q_learn, sarsa):
+        """
+        Plots a line graph of the number of trophies found while learning
+        :param q_learn: the q-learning learning data
+        :param sarsa: the SARSA learning data
+        """
+        if self.LEVELS == 1:
+            plt.plot([j for j in range(0, self.EPISODES,
+                                       int(self.EPISODES / 10))], q_learn,
+                     color=self.cols[0])
+            plt.plot([j for j in range(0, self.EPISODES,
+                                       int(self.EPISODES / 10))], sarsa,
+                     color=self.cols[1])
+            plt.ylabel("Trophy count in every " +
+                       str(int(self.EPISODES / 10)) + " episodes")
+            plt.title("Count of trophies found while learning " +
+                      str(self.EPISODES) + " episodes at level " +
+                      str(self.SIZE))
+        else:
+            plt.plot([j for j in range(0, int(self.EPISODES * self.LEVELS),
+                                       self.EPISODES)], q_learn,
+                     color=self.cols[0])
+            plt.plot([j for j in range(0,  int(self.EPISODES * self.LEVELS),
+                                       self.EPISODES)], sarsa,
+                     color=self.cols[1])
+            plt.ylabel("Trophy count in every " +
+                       str(int(self.EPISODES / self.LEVELS)) + " episodes")
+            plt.title("Count of trophies found while learning " +
+                      str(self.LEVELS) + " snake levels")
+        plt.legend(handles=[patches.Patch(color=self.cols[i],
+                                          label=self.algos[i])
+                            for i in range(2)])
+        plt.xlabel("Episodes")
+        plt.show()
+
+    def plot_testing(self, q_learn, sarsa):
+        """
+        Plots the number of moves to trophy from each state during playback
+        :param q_learn: the q-learning learning data
+        :param sarsa: the SARSA learning data
+        """
+        if self.LEVELS > 1:
+            plt.title("Agent moves to trophy in " + str(self.LEVELS) +
+                      " levels of " + str(self.EPISODES) + " episodes")
+            plt.ylabel("Moves to trophy per " + str(self.EPISODES) +
+                       " episode level")
+        else:
+            plt.title("Agent moves to trophy in " + str(self.EPISODES) +
+                      " episodes at level " + str(self.SIZE))
+            plt.ylabel("Moves to trophy per " + str(self.EPISODES) +
+                       " episodes")
+        plt.xlabel("Agent starting cell: from pos(0, 0) to pos(10, 10)")
+        plt.plot([j for j in range(121)], q_learn, color=self.cols[0])
+        plt.plot([j for j in range(121)], sarsa, color=self.cols[1])
+        plt.legend(handles=[patches.Patch(color=self.cols[i],
+                                          label=self.algos[i])
+                            for i in range(2)])
+        plt.show()
+
 
 if __name__ == "__main__":
     app = ReinforcementLearningAlgorithms()
@@ -82,3 +141,10 @@ if __name__ == "__main__":
             app.test_sarsa()
     elif "-m" in arguments:
         app.play_snake()
+    else:
+        sarsa = app.learn_sarsa()
+        sarsa_test = app.test_sarsa()
+        q_learn = app.learn_q_learning()
+        q_learn_test = app.test_q_learning()
+        app.plot_learning(q_learn, sarsa)
+        app.plot_testing(q_learn_test, sarsa_test)

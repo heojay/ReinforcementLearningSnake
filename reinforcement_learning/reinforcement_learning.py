@@ -13,7 +13,7 @@ class ReinforcementLearning:
     """
     Superclass for restricted learning algorithms
     Author: Adam Ross
-    Date: 16/05/2019
+    Date: 22/05/2019
     """
 
     ETA = 0.1  # learning rate
@@ -124,6 +124,9 @@ class ReinforcementLearning:
         Runs the Q-learning algorithm for number of given episodes
         """
         for j in range(1, self.levels + 1):
+            with open(self.file[:-5] + str(self.size - 1) + ".txt", 'rb') as h:
+                self.rl_map_levels = loads(h.read())
+            self.rl_map, count_trophies = self.rl_map_levels[0], 0
 
             if j > 1:
                 if self.GROW:
@@ -141,10 +144,22 @@ class ReinforcementLearning:
                 self.init_snake()
                 self.game.snake_crashed = False
                 self.play_episode()
+
+                if not self.game.snake_crashed:
+                    count_trophies += 1
+
+                if self.levels == 1:
+                    if i % (self.episodes / 10) == 0:
+                        self.trophy_count.append(count_trophies)
+                        count_trophies = 0
+
+            if self.levels > 1:
+                self.trophy_count.append(count_trophies)
             self.rl_map_levels[0] = self.rl_map
 
-            with open(self.file[:-5] + str(j) + ".txt", 'wb') as file:
+            with open(self.file, 'wb') as file:
                 dump(self.rl_map_levels, file)
+        return self.trophy_count
 
     def optimal_paths(self):
         """
@@ -159,7 +174,7 @@ class ReinforcementLearning:
                      for j in range(self.game.N)]
 
         for k in range(self.OPTIMAL_PATHS):
-            self.trophy, self.agent = [5, 5], None
+            self.trophy, self.agent, count = [5, 5], None, 0
 
             for i in range(self.levels):
                 self.rl_map = self.rl_map_levels[i]
@@ -184,6 +199,7 @@ class ReinforcementLearning:
                     actions = [4]
 
                     if self.agent[0] in self.agent[1:]:
+                        count = -5
                         break
 
                     while True:
@@ -203,6 +219,7 @@ class ReinforcementLearning:
                         if head_move and (0 <= head_move[0] < self.game.N) and\
                                 (0 <= head_move[1] < self.game.N):
                             self.agent[:0] = [head_move]
+                            count += 1
                             break
                         actions.append(self.action)
 
@@ -212,3 +229,7 @@ class ReinforcementLearning:
                 if len(self.agent) > 0 and self.DISPLAY:
                     self.game.tail = self.agent[-1]
                     self.game.display_snake()
+
+            if self.OPTIMAL_PATHS == self.game.N * self.game.N:
+                paths[k] = [count]
+        return [i[0] for i in paths]
