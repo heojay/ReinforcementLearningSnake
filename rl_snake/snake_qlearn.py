@@ -28,7 +28,7 @@ class SnakeQlearning:
     GAMMA = 0.95  # discount
     STARTING_EPSILON = 0.7  # exploration: greedy - random, epsilon value at beginning
     MIN_EPSILON = 0.5  # minimum exploration (toward end of training)
-    EPISODES = 1000  # maximum number of episodes to train
+    EPISODES = 5000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
     FRAME_SPEED = 0.0001  # the frame speed for rendering (lower is faster)
@@ -121,9 +121,10 @@ class SnakeQlearning:
     def display_gl_metrics(self):
         print(self.gl_metrics)
 
-    def train(self):
+    def train(self, qfile=None):
         """
         Trains a single game level of snake.
+        :param qfile: path and filename for saving Q-data or None if not to save
         :return: the number of episodes run
         """
         msg = str.format("Start run of snake_qlearn at {0}, using eta:{1}, gamma:{2}, epsilons:{3} {4}", \
@@ -171,6 +172,10 @@ class SnakeQlearning:
         self.env.close()
         self._log(str.format("Finished RL Q-learning with metrics:{0}",self.gl_metrics), screen=True)
         self._log(str.format("num_non_zero_states:{0}", self.q.get_num_nonzero_states()))
+
+        if qfile is not None:
+            self.save_qdata(qfile)
+
         return(epi)
 
     def get_new_snake_start_coord(self):
@@ -186,7 +191,7 @@ class SnakeQlearning:
 
     def train_episode(self, display):
         """
-        Trains a single episodes of game snake.
+        Trains a single episode of game snake.
         An episode ends in one of following: find trophy, make invalid move/die, reach max timesteps
         :return: boolean success found trophy or failure
         """
@@ -277,13 +282,71 @@ class SnakeQlearning:
         self.snake = game_controller.snakes[0]
         self.env.close()
 
-    def replay(self):
+    def replay(self, path, start_pos=None, frame_speed=0.3):
         """
         Replays previously trained snake from file
+        :param path: path and filename of the file with q values
+        :param start_pos: the starting position, if None then random
+        :param frame_speed: the frame speed to render the paths
         """
-        pass
-        #with open(self.file, 'rb') as handle:
-        #   self.q.qmap = loads(handle.read())
+        with open(path, 'rb') as handle:
+           self.q.qmap = loads(handle.read())
+
+        assert self.q.check_all_states_nonzero()
+        #assert self.q.verify_all_states(self.trophy_pos) == 0
+
+        if start_pos is None:
+            start_pos = self.get_new_snake_start_coord()
+        self.env.start_coord = start_pos
+
+        self.env.food_pos = self.TROPHY_POS
+        p = self.q.get_optimal_path(self.env.start_coord, self.trophy_pos)
+        print(p)
+
+        observation = self.env.reset()
+        game_controller = self.env.controller
+        self.snake = game_controller.snakes[0]
+
+        coord = self.env.start_coord
+        self.env.render(frame_speed=frame_speed)
+
+        pre_action=self.get_direction_to_coord(self.snake.head, p[2])
+        if abs(pre_action-self.snake.direction)==2:
+            #raise Exception("Snake direction is opposite of optimal path direction. Must compensate.")
+            if self.snake.head[0]>1:
+                self.env.step(self.snake.LEFT)
+            else:
+                self.env.step(self.snake.RIGHT)
+            self.env.render(frame_speed=frame_speed)
+            self.env.step(self.snake.UP)
+            self.env.render(frame_speed=frame_speed)
+
+        for i in range(1,len(p)):
+            # TODO: set snake and move snake
+            nxt_coord=p[i]
+            print(nxt_coord)
+            action=self.get_direction_to_coord(self.snake.head, nxt_coord)
+            #action=3
+            print(action)
+            self.env.step(action)
+            coord=nxt_coord
+            self.env.render(frame_speed=frame_speed)
+        self.env.close()
+
+    def get_direction_to_coord(self, from_coord, to_coord):
+        """
+        Gets the direction from one coordinate to another
+        """
+        if from_coord[0] < to_coord[0]:
+            return 1 # self.snake.RIGHT
+        if from_coord[0] > to_coord[0]:
+            return 3 # self.snake.LEFT
+        if from_coord[1] < to_coord[1]:
+            return 2 # self.snake.DOWN
+        if from_coord[1] > to_coord[1]:
+            return 0 # self.snake.UP
+        else:
+            raise Exception("Unable to determine correct direction to move snake.")
 
     def plot_training_scores(self):
         """
@@ -386,7 +449,7 @@ class Qlearn:
         #print("reward:{0}, disc:{1}, nxtmax:{2}".format(reward, self.disc, nxt_max))
         qv = (1-self.lr) * oldval + self.lr * learnedval
         #print("lr:{0}, oldval:{1}, learnedval:{2}".format(self.lr, oldval, learnedval))
-        return qv
+        return round(qv,4)
 
     def get_coord_next_max(self, coord):
         """

@@ -12,6 +12,13 @@ def test_constr():
         app = env.SnakeQlearning()
         assert isinstance(app, env.SnakeQlearning)
 
+def test_get_direction_to_coord():
+        app = env.SnakeQlearning()
+        assert app.get_direction_to_coord([0,0], [1,0]) == 1 # app.snake.RIGHT
+        assert app.get_direction_to_coord([9,0], [8,0]) == 3 # app.snake.LEFT
+        assert app.get_direction_to_coord([0,3], [0,4]) == 2 # app.snake.DOWN
+        assert app.get_direction_to_coord([0,4], [0,3]) == 0 # app.snake.UP
+
 
 ## Test Qlearn
 width=15 # set equal to tested class
@@ -52,21 +59,46 @@ def test_Qlearn_get_index_max_value():
         assert q.get_index_max_value(5, 4) == 1
 
 def test_Qlearn_get_update_qvalue():
-        reward=1
         row=4
         col=5
         state=[col,row]
-        action_idx=1
         nxt_state=[col,row+1]
         q = _get_a_Qlearn()
-        state_vals = [0,0,0,0]
-        state_vals[0] = 0.2
-        state_vals[1] = 0.8
-        state_vals[2] = 0.5
-        state_vals[3] = 0.0
-        q.qmap[col][row] = state_vals
+        q.qmap[col][row] = [0.2,0.8,0.5,0.0]
+        action_idx=1
+        reward=1
         qv = q.get_update_qvalue(reward, state, action_idx, nxt_state) # 1, state, 1, nxt
         assert qv == 0.9
+
+def test_Qlearn_get_update_qvalue2():
+        row=4
+        col=5
+        state=[col,row]
+        nxt_state=[col,row+1]
+        q = _get_a_Qlearn()
+        q.qmap[col][row] = [0.2,0.8,0.5,0.0]
+        q.qmap[col][row+1] = [0.5,0.5,0.5,0.5]
+        action_idx=1
+        reward=0
+        qv = q.get_update_qvalue(reward, state, action_idx, nxt_state) # 1, state, 1, nxt
+        assert qv == 0.6
+
+def test_Qlearn_get_update_qvalue_offmap():
+        row=0
+        col=0
+        state=[col,row]
+        nxt_state=[col,row+1]
+        q = _get_a_Qlearn()
+        q.qmap[col][row] = [0.0,0.1,0.2,0.3]
+        #q.qmap[col][row+1] = [0.5,0.5,0.5,0.5]
+        action_idx=0
+        reward=-1
+        print(state)
+        print(q.qmap[col][row])
+        print(nxt_state)
+        print(q.qmap[col-1][row])
+        qv = q.get_update_qvalue(reward, state, action_idx, nxt_state) # 1, state, 1, nxt
+        assert qv == -0.5
         ##assert False, "Fake assert to make PyTest output prints"
 
 def test_Qlearn_get_optimal_path():
