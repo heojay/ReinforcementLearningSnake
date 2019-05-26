@@ -1,0 +1,7 @@
+README.md
+setup.py
+gym_snake_mod19.egg-info/PKG-INFO
+gym_snake_mod19.egg-info/SOURCES.txt
+gym_snake_mod19.egg-info/dependency_links.txt
+gym_snake_mod19.egg-info/requires.txt
+gym_snake_mod19.egg-info/top_level.txt
