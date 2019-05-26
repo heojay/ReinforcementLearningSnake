@@ -22,9 +22,9 @@ class Sarsa(ReinforcementLearning):
 
     def update_state(self):
         """
-        Updates a state action q-value
+        Updates a state action q-value for SARSA
         """
-        if self.action not in range(3):
+        if self.action not in range(4):
             self.state = self.agent[0].copy()
             self.choose_action()
         self.game.move_snake(self.game.absolute_dirs(self.DIRS[self.action]))

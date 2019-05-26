@@ -25,13 +25,13 @@ class ReinforcementLearning:
     SPEED = 600  # the speed the snake moves
     DIRS = {0: '\x1b[A', 1: '\x1b[B', 2: '\x1b[C', 3: '\x1b[D'}
     OPTIMAL_PATHS = 121  # the number of optimal paths displayed
-    DISPLAY = False  # if the learning algorithm is displayed or not
+    DISPLAY = True  # if the learning algorithm is displayed or not
     TROPHY_POS = [5, 5]   # trophy pos at init
     FIXED_TROPHY = True  # if the trophy position is fixed at every episode
     PURE_RANDOM = False  # if the trophy is pure random at every episode
     GROW = True  # if the agent (snake) increments at tail when gets a trophy
     FIXED_AGENT = False  # if the agent has a fixed starting state each episode
-    FIXED_AGENT_POS = [3, 8]  # the pos of the agent when FIXED_AGENT is True
+    FIXED_AGENT_POS = [[5, 10]]  # the pos of the agent when FIXED_AGENT is True
     PATH = 'reinforcement_learning/data/'  # the path to table data file
 
     def __init__(self, file_name, episodes, levels, size):
@@ -110,7 +110,7 @@ class ReinforcementLearning:
             self.game.set_snake()
 
             if self.FIXED_AGENT:
-                self.game.snake = self.FIXED_AGENT_POS
+                self.game.snake = self.FIXED_AGENT_POS.copy()
             self.agent = self.game.snake
 
             if len(self.agent) > self.size:
@@ -124,9 +124,7 @@ class ReinforcementLearning:
         Runs the Q-learning algorithm for number of given episodes
         """
         for j in range(1, self.levels + 1):
-            with open(self.file[:-5] + str(self.size - 1) + ".txt", 'rb') as h:
-                self.rl_map_levels = loads(h.read())
-            self.rl_map, count_trophies = self.rl_map_levels[0], 0
+            count_trophies = 0
 
             if j > 1:
                 if self.GROW:
@@ -157,8 +155,8 @@ class ReinforcementLearning:
                 self.trophy_count.append(count_trophies)
             self.rl_map_levels[0] = self.rl_map
 
-            with open(self.file, 'wb') as file:
-                dump(self.rl_map_levels, file)
+        with open(self.file, 'wb') as file:
+            dump(self.rl_map_levels, file)
         return self.trophy_count
 
     def optimal_paths(self):
@@ -174,7 +172,7 @@ class ReinforcementLearning:
                      for j in range(self.game.N)]
 
         for k in range(self.OPTIMAL_PATHS):
-            self.trophy, self.agent, count = [5, 5], None, 0
+            self.trophy, self.agent, count = self.TROPHY_POS, None, 0
 
             for i in range(self.levels):
                 self.rl_map = self.rl_map_levels[i]
@@ -183,15 +181,12 @@ class ReinforcementLearning:
                     print("Optimal path " + str(k + 1) + " -> level " +
                           str(i + 1))
 
-                if self.OPTIMAL_PATHS == self.game.N * self.game.N:
+                if self.FIXED_AGENT:
+                    self.agent = self.FIXED_AGENT_POS.copy()
+                elif self.OPTIMAL_PATHS == self.game.N * self.game.N:
                     self.agent = [paths[k]]
                 else:
                     self.agent = [self.trophy]
-
-                if i > 0:
-                    self.agent += \
-                        self.game.snake[:(self.size - self.levels) + i]
-                    self.trophy = self.game.new_food()
                 self.init_snake()
                 self.agent = self.game.snake = self.agent
 

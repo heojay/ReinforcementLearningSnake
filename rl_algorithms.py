@@ -14,11 +14,11 @@ class ReinforcementLearningAlgorithms:
     Date: 22/05/2019
     """
 
-    SIZE = 5  # the initial size of the snake/agent whether playing or learning
+    SIZE = 1  # the initial size of the snake/agent whether playing or learning
     LEVELS = 1  # the number of snake game levels being learned
-    EPISODES = 15000  # the number of learning episodes per snake game level
-    Q_LEARNING_FILE = 'q-learning_L5.txt'
-    SARSA_FILE = 'sarsa_L5.txt'
+    EPISODES = 5000  # the number of learning episodes per snake game level
+    Q_LEARNING_FILE = 'q-learning.txt'
+    SARSA_FILE = 'sarsa.txt'
 
     def __init__(self):
         """

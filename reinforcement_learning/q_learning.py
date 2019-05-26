@@ -22,7 +22,7 @@ class QLearning(ReinforcementLearning):
 
     def update_state(self):
         """
-        Updates a state action q-value
+        Updates a state action q-value for Q-learning
         """
         self.state = self.agent[0].copy()
         self.choose_action()
