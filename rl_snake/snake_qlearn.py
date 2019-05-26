@@ -26,8 +26,8 @@ class SnakeQlearning:
 
     ETA = 0.1  # learning rate
     GAMMA = 0.95  # discount
-    STARTING_EPSILON = 0.7  # exploration: greedy - random, epsilon value at beginning
-    MIN_EPSILON = 0.5  # minimum exploration (toward end of training)
+    STARTING_EPSILON = 0.9  # exploration: greedy - random, epsilon value at beginning
+    MIN_EPSILON = 0.4  # minimum exploration (toward end of training)
     EPISODES = 5000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
@@ -49,18 +49,21 @@ class SnakeQlearning:
         self.env.snake_size = self.SNAKE_SIZE
         self.fixed_snake = fixed_snake
         self.display = display # If display snake game, then training score plot is not displayed
-        self.epsilon = self.STARTING_EPSILON
         self.score_freq = self.EPISODES / 10
 
-        self.snake = None
         self.trophy_pos = self.TROPHY_POS
         self.width = self.env.grid_size[0]
         self.height = self.env.grid_size[1]
+        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA)
+        self._reinitialize()
+
+    def _reinitialize(self):
+        self.snake = None
+        self.epsilon = self.STARTING_EPSILON
         self.score_per_episode = []
         self.score_per_episode_x = []
         self.n_invalid_paths_per_episode = []
         self.log = []
-        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA)
         self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1, 
             num_seq_episodes_success=0, last_score=0, last_n_invalid_paths=-1)
 
@@ -84,7 +87,7 @@ class SnakeQlearning:
         :param qfile: path and filename for saving Q-data or None if not to save
         :return: the number of game levels successfully trained
         """
-        self.train_game_level(self, qfile)
+        self.train_game_level(qfile)
         return 1
 
     def train_game_level(self, qfile=None):

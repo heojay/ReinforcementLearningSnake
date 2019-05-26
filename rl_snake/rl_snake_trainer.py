@@ -59,7 +59,7 @@ class SnakeTrainer:
                 print("Unable to determine best path from snake to trophy.")
                 print(e)
 
-            print("Finished game level after 1 training episodes")
+            print("Finished game level 1 after training")
 
         self.qlearn.plot_training_scores()
 
