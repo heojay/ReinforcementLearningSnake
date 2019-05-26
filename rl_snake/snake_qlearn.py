@@ -27,19 +27,19 @@ class SnakeQlearning:
     ETA = 0.1  # learning rate
     GAMMA = 0.95  # discount
     STARTING_EPSILON = 0.9  # exploration: greedy - random, epsilon value at beginning
-    MIN_EPSILON = 0.4  # minimum exploration (toward end of training)
-    EPISODES = 5000  # maximum number of episodes to train
+    MIN_EPSILON = 0.6  # minimum exploration (toward end of training)
+    EPISODES = 10000  # maximum number of episodes to train
     MAX_EPISODE_TIMESTEPS = 500  # max number of timesteps (action moves) per episode
     REWARD = 0   # default reward (if negative, small penalty for every step)
     FRAME_SPEED = 0.0001  # the frame speed for rendering (lower is faster)
-    TROPHY_POS = [2, 3]  # the trophy pos at initialization
+    TROPHY_POSITIONS = [[7, 7], [2, 3], [4,8]] # trophy positions at each game level
     SNAKE_SIZE = 2  # the length of the snake
     DEBUG = False  # The verbosity level for logging
 
     def __init__(self, fixed_snake=False, display=True):
         """
         Class Initializer
-        :param fixed_snake: controls whether the snake startin position is fixed or random.
+        :param fixed_snake: controls whether the snake starting position is fixed or random.
         :param display: when true, then displays the snake's movements at the end of training.
         """
         self.env = gym.make('snake-mod19-v0')
@@ -51,10 +51,12 @@ class SnakeQlearning:
         self.display = display # If display snake game, then training score plot is not displayed
         self.score_freq = self.EPISODES / 10
 
-        self.trophy_pos = self.TROPHY_POS
+        self.trophy_pos = self.TROPHY_POSITIONS[0]
+        self.num_game_levels = len(self.TROPHY_POSITIONS)
         self.width = self.env.grid_size[0]
         self.height = self.env.grid_size[1]
         self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA)
+        self.level = 1
         self._reinitialize()
 
     def _reinitialize(self):
@@ -87,13 +89,30 @@ class SnakeQlearning:
         :param qfile: path and filename for saving Q-data or None if not to save
         :return: the number of game levels successfully trained
         """
-        self.train_game_level(qfile)
-        return 1
+        for level in range(1, self.num_game_levels+1):
+            self._log("Begin training game level {0}".format(level), True)
+            if level == 1:
+                req_score = 90
+            if level > 1:
+                self._reinitialize()
+                self.trophy_pos = self.TROPHY_POSITIONS[level-1] # put trophy in new position
+                self.env.snake_size = self.SNAKE_SIZE + level - 1
+                req_score = 75
 
-    def train_game_level(self, qfile=None):
+            if qfile is None:
+                qfilelev = None
+            else:
+                qfilelev = str.format("{0}_{1}.txt", qfile, level)
+
+            self.env.food_pos = self.trophy_pos
+            self.train_game_level(qfilelev, req_score)
+        return level
+
+    def train_game_level(self, qfile=None, req_score=90):
         """
         Trains a single game level of snake.
         :param qfile: path and filename for saving Q-data or None if not to save
+        :param req_score: the minimum score accepted for early stopping
         :return: the number of episodes run
         """
         msg = str.format("Start run of snake_qlearn at {0}, using eta:{1}, gamma:{2}, epsilons:{3} {4}", \
@@ -102,7 +121,7 @@ class SnakeQlearning:
 
         self.gl_metrics['num_seq_episodes_success'] = 0 # the number of sequential episodes with success (find the trophy)
         for epi in range(1, self.EPISODES+1):
-            if self.display and epi > self.EPISODES*0.9:
+            if self.display and epi>self.EPISODES*0.9:
                 display = True
             else:
                 display = False
@@ -123,7 +142,7 @@ class SnakeQlearning:
                 n_invalid_paths = len(self.q.verify_all_states(self.trophy_pos))
                 self.gl_metrics['last_n_invalid_paths'] = n_invalid_paths
                 self.n_invalid_paths_per_episode.append(n_invalid_paths)
-                if score>90 and n_invalid_paths==0 and epi<self.EPISODES:
+                if score>req_score and n_invalid_paths==0 and epi<self.EPISODES:
                     # Early stopping
                     self._log("Completed training for this game level. All states are trained.", True)
                     break
@@ -154,8 +173,6 @@ class SnakeQlearning:
         :param display: whether to render the snake in the game map during training
         :return: boolean success found trophy or failure
         """
-        self.env.food_pos = self.trophy_pos
-
         if not self.fixed_snake:
             self.env.start_coord = self.get_new_snake_start_coord()
 
@@ -223,14 +240,20 @@ class SnakeQlearning:
         self._log_debug("Finished episode with total accumulated reward = {0}".format(totalreward))
         return 0
 
-    def get_new_snake_start_coord(self):
+    def get_new_snake_start_coord(self, exclude_wall_states=False):
         """
         Gets a new valid starting coordinate for the snake
+        :param exclude_wall_states: boolean whether to exclude the wall states
         :return: a new coordinate
         """
-        snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+        if exclude_wall_states:
+            w1, w2, h1, h2 = 1, self.width-2, 1, self.height-2
+        else:
+            w1, w2, h1, h2 = 0, self.width-1, 0, self.height-1
+        snake_coord = [randint(w1, w2), randint(h1, h2)]
         while snake_coord == self.trophy_pos:
-            snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+            snake_coord = [randint(w1, w2), randint(h1, h2)]
+        
         return snake_coord
 
     def convert_idx_to_action(self, idx):
@@ -290,34 +313,57 @@ class SnakeQlearning:
         self.snake = game_controller.snakes[0]
         self.env.close()
 
-    def replay(self, path, start_pos=None, frame_speed=0.3):
+    def replay(self, path, frame_speed=0.3):
+        """
+        Replays all previously defined and trained game levels trained from file(s)
+        :param path: path and filename of the file with q values
+        :param frame_speed: the frame speed to render the paths
+        """
+        for level in range(1, self.num_game_levels+1):
+            if level==1:
+                start = self.get_new_snake_start_coord(True)
+            else:
+                start = self.TROPHY_POSITIONS[level-2] # get the position of trophy from previous level
+            self.replay_level(path, [start], frame_speed, level)
+
+    def replay_level(self, path, start_positions=[], frame_speed=0.3, level=1):
         """
         Replays previously trained snake from file
         :param path: path and filename of the file with q values
-        :param start_pos: the starting position, if None then random
+        :param start_positions: a list of starting positions, if empty then random positions
         :param frame_speed: the frame speed to render the paths
+        :param level: the game level to replay
         """
-        print("Replay mode")
+        print("Replay mode, game level {0}".format(level))
+        self.level = level
+        path += str.format("_{0}.txt", level)
         with open(path, 'rb') as handle:
            self.q.qmap = loads(handle.read())
 
         assert self.q.check_all_states_nonzero()
         #assert self.q.verify_all_states(self.trophy_pos) == 0
+        self.trophy_pos = self.TROPHY_POSITIONS[level-1]
+        self.env.food_pos = self.trophy_pos
 
-        if start_pos is None:
-            start_pos = self.get_new_snake_start_coord()
-        self.env.start_coord = start_pos
+        if len(start_positions) == 0:
+            # create 2 random starting positions to test the snake
+            for i in range(2):
+                start = self.get_new_snake_start_coord(True)
+                start_positions.append(start)
 
-        self.env.food_pos = self.TROPHY_POS
-        print("Playing from snake start position: {0} to trophy position: {1}" .format(start_pos, self.TROPHY_POS))
+        for i in range(len(start_positions)):
+            start_pos = start_positions[i]
+            self.env.start_coord = start_pos
+            print("Playing from snake start position: {0} to trophy position: {1}" .format(start_pos, self.trophy_pos))
+            self._play_one_start(start_pos, frame_speed)
+
+    def _play_one_start(self, start_pos, frame_speed=0.3):
         p = self.q.get_optimal_path(self.env.start_coord, self.trophy_pos)
         print(p)
-
+        self.env.snake_size = self.SNAKE_SIZE + self.level - 1
         observation = self.env.reset()
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
-
-        coord = self.env.start_coord
         self.env.render(frame_speed=frame_speed)
 
         pre_action=self.get_direction_to_coord(self.snake.head, p[2])
@@ -525,7 +571,8 @@ class Qlearn:
         """
         Checks whether all states have at least one action that is not zero
         """
-        return self.get_num_nonzero_states() == self.w*self.h - 1
+        n_states_exclude = 2*self.w + 2*self.h -2 + 1
+        return self.get_num_nonzero_states() >= self.w*self.h - n_states_exclude
 
     def get_optimal_path(self, startcoord, trophycoord):
         """

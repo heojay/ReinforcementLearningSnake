@@ -18,7 +18,7 @@ class SnakeTrainer:
 
     DISPLAY = False # whether to display the game during training (last 10% of episodes)
     PATH = 'C:/Dev/logs/'  # ex: C:/Dev/logs/
-    Q_LEARNING_FILE = 'q-learning.txt'
+    Q_LEARNING_FILE_PREFIX = 'q-learning' # prefix to files containing Q-values
 
     def __init__(self):
         """
@@ -33,7 +33,7 @@ class SnakeTrainer:
         :param save_log: whether to save a rolling log file
         """
         if save_qfile:
-            qfile = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE)
+            qfile = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE_PREFIX)
         else:
             qfile = None
 
@@ -47,10 +47,11 @@ class SnakeTrainer:
         """
         Displays the training results as text and a plot
         """
-        if not self.qlearn.q.check_all_states_nonzero():
+        all_states_nonzero = self.qlearn.q.check_all_states_nonzero()
+        if not all_states_nonzero:
             print("Training did not succeed. All states are not non zero.")
 
-        if self.qlearn.q.check_all_states_nonzero():
+        if all_states_nonzero:
             print("Now verifying the training using all states")    
             try:
                 invalid_states = self.qlearn.q.verify_all_states(self.qlearn.gl_metrics['trophy'])
@@ -59,17 +60,17 @@ class SnakeTrainer:
                 print("Unable to determine best path from snake to trophy.")
                 print(e)
 
-            print("Finished game level 1 after training")
-
         self.qlearn.plot_training_scores()
 
     def replay(self):
         """
         Plays back the optimal paths from previous training
         """
-        start_coord = None
         frame_speed = 0.3
-        self.qlearn.replay(str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE), start_coord, frame_speed)
+        path = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE_PREFIX)
+        self.qlearn.replay(path, frame_speed)
+        #start_positions = [] # use randomly created starting positions for the snake
+        #self.qlearn.replay_level(path, start_positions, frame_speed, 2)
 
 
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     
     if "-t" in arguments:
         # train / learn
-        app.train(True, False)
+        app.train(True, True)
         end = time.time()
         app.display_training_result()
         print("Total train duration:{0} seconds" .format(round(end - start, 3)))
