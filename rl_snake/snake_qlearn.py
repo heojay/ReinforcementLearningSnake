@@ -60,7 +60,7 @@ class SnakeQlearning:
         self.score_per_episode_x = []
         self.n_invalid_paths_per_episode = []
         self.log = []
-        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA, self.epsilon, 0)
+        self.q = Qlearn(self.width, self.height, self.ETA, self.GAMMA)
         self.gl_metrics = dict(snakestart=[-1,-1], trophy=[-1,-1], disttotrophy=-1, 
             num_seq_episodes_success=0, last_score=0, last_n_invalid_paths=-1)
 
@@ -78,50 +78,16 @@ class SnakeQlearning:
             idx = self.q.get_index_max_value(self.snake.head[0], self.snake.head[1])
         return self.convert_idx_to_action(idx)
 
-    def convert_idx_to_action(self, idx):
-        if idx == 0:
-            return self.snake.UP
-        elif idx == 1:
-            return self.snake.RIGHT
-        elif idx == 2:
-            return self.snake.DOWN
-        elif idx == 3:
-            return self.snake.LEFT
-
-    def convert_action_to_index(self, action):
-        if action == self.snake.UP:
-            return 0
-        elif action == self.snake.RIGHT:
-            return 1
-        elif action == self.snake.DOWN:
-            return 2
-        elif action == self.snake.LEFT:
-            return 3
-
-    def is_legal_action(self, action):
-        """
-        Checks if a given action is legal based on direction of snake
-        :return: True or False
-        """
-        dir = self.snake.direction
-        if action == self.snake.RIGHT and dir == self.snake.LEFT:
-            return False
-        elif action == self.snake.LEFT and dir == self.snake.RIGHT:
-            return False
-        elif action == self.snake.UP and dir == self.snake.DOWN:
-            return False
-        elif action == self.snake.DOWN and dir == self.snake.UP:
-            return False
-        else:
-            return True
-
-    def display_qvalues(self):
-        print(self.q.qmap)
-
-    def display_gl_metrics(self):
-        print(self.gl_metrics)
-
     def train(self, qfile=None):
+        """
+        Trains the snake game using Q-learning
+        :param qfile: path and filename for saving Q-data or None if not to save
+        :return: the number of game levels successfully trained
+        """
+        self.train_game_level(self, qfile)
+        return 1
+
+    def train_game_level(self, qfile=None):
         """
         Trains a single game level of snake.
         :param qfile: path and filename for saving Q-data or None if not to save
@@ -178,21 +144,11 @@ class SnakeQlearning:
 
         return(epi)
 
-    def get_new_snake_start_coord(self):
-        """
-        Gets a new valid starting coordinate for the snake
-        :return: a new coordinate
-        """
-        # TODO: unit test
-        snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
-        while snake_coord == self.trophy_pos:
-            snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
-        return snake_coord
-
     def train_episode(self, display):
         """
         Trains a single episode of game snake.
         An episode ends in one of following: find trophy, make invalid move/die, reach max timesteps
+        :param display: whether to render the snake in the game map during training
         :return: boolean success found trophy or failure
         """
         self.env.food_pos = self.trophy_pos
@@ -264,8 +220,55 @@ class SnakeQlearning:
         self._log_debug("Finished episode with total accumulated reward = {0}".format(totalreward))
         return 0
 
+    def get_new_snake_start_coord(self):
+        """
+        Gets a new valid starting coordinate for the snake
+        :return: a new coordinate
+        """
+        snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+        while snake_coord == self.trophy_pos:
+            snake_coord = [randint(0, self.width-1), randint(0, self.height-1)]
+        return snake_coord
+
+    def convert_idx_to_action(self, idx):
+        if idx == 0:
+            return self.snake.UP
+        elif idx == 1:
+            return self.snake.RIGHT
+        elif idx == 2:
+            return self.snake.DOWN
+        elif idx == 3:
+            return self.snake.LEFT
+
+    def convert_action_to_index(self, action):
+        if action == self.snake.UP:
+            return 0
+        elif action == self.snake.RIGHT:
+            return 1
+        elif action == self.snake.DOWN:
+            return 2
+        elif action == self.snake.LEFT:
+            return 3
+
+    def is_legal_action(self, action):
+        """
+        Checks if a given action is legal based on direction of snake
+        :return: True or False
+        """
+        if abs(action - self.snake.direction) == 2:
+            return False
+        return True
+
+    def display_qvalues(self):
+        print(self.q.qmap)
+
+    def display_gl_metrics(self):
+        print(self.gl_metrics)
+
     def play_minigame(self):
-        # Simple game to test various game parameters
+        """
+        Plays a simple game to test various game parameters
+        """
         observation = self.env.reset()
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
@@ -276,7 +279,9 @@ class SnakeQlearning:
         self.env.close()
 
     def play_initgame(self):
-        # Used by unit testing
+        """
+        Used by unit testing
+        """
         observation = self.env.reset()
         game_controller = self.env.controller
         self.snake = game_controller.snakes[0]
@@ -289,6 +294,7 @@ class SnakeQlearning:
         :param start_pos: the starting position, if None then random
         :param frame_speed: the frame speed to render the paths
         """
+        print("Replay mode")
         with open(path, 'rb') as handle:
            self.q.qmap = loads(handle.read())
 
@@ -300,6 +306,7 @@ class SnakeQlearning:
         self.env.start_coord = start_pos
 
         self.env.food_pos = self.TROPHY_POS
+        print("Playing from snake start position: {0} to trophy position: {1}" .format(start_pos, self.TROPHY_POS))
         p = self.q.get_optimal_path(self.env.start_coord, self.trophy_pos)
         print(p)
 
@@ -322,12 +329,9 @@ class SnakeQlearning:
             self.env.render(frame_speed=frame_speed)
 
         for i in range(1,len(p)):
-            # TODO: set snake and move snake
             nxt_coord=p[i]
-            print(nxt_coord)
             action=self.get_direction_to_coord(self.snake.head, nxt_coord)
-            #action=3
-            print(action)
+            print("Now making move {0} to go to next coordinate {1}".format(action, nxt_coord))
             self.env.step(action)
             coord=nxt_coord
             self.env.render(frame_speed=frame_speed)
@@ -336,6 +340,7 @@ class SnakeQlearning:
     def get_direction_to_coord(self, from_coord, to_coord):
         """
         Gets the direction from one coordinate to another
+        :return: a direction
         """
         if from_coord[0] < to_coord[0]:
             return 1 # self.snake.RIGHT
@@ -371,10 +376,18 @@ class SnakeQlearning:
         plt.show()
 
     def save_qdata(self, path):
+        """
+        Saves the Q-values table to a file
+        :param path: the path and filename to save to
+        """
         with open(path, 'wb') as file:
             dump(self.q.qmap, file)
 
     def save_log(self, path):
+        """
+        Saves the log messages to a file
+        :param path: the path and filename to save to
+        """
         with open(path, 'w') as file:
             for msg in self.log:
                 file.write(msg + '\n')
@@ -399,25 +412,33 @@ class Qlearn:
 
     lr = 0.1 # alpha learn_rate
     disc = 0.95  # gamma discount
-    expl = 1.0 # exploration
-    reward = 0 # default_reward
 
-    def __init__(self, width, height, lr, disc, expl, reward):
+    def __init__(self, width, height, lr, disc):
+        """
+        Class Initializer
+        :param width: the width of the map grid
+        :param height: the height of the map grid
+        :param lr: the learning rate
+        :param disc: the discount rate
+        """
         self.w = width
         self.h = height
         self.lr = lr
         self.disc = disc
-        self.expl = expl
-        self.reward = reward
         self.n_play_coords = -1
         self.qmap = [[[0] * 4 for _ in range(height)]
                        for _ in range(width)]  # matrix of states: N E S W, init to 0 values
 
     def get_statevalues(self, col, row):
+        """
+        Gets the state values for a given state
+        :return: the action values
+        """
         return self.qmap[col][row]
 
     def get_index_max_value(self, col, row):
         """
+        Gets the index of the action with the maximum Q-value
         :return: the index (N E S W) of the max value of the state cell
         """
         values=self.get_statevalues(col, row)
@@ -431,6 +452,9 @@ class Qlearn:
         self.set_qvalue(qv, state, action_idx)
 
     def set_qvalue(self, qvalue, state, action_idx):
+        """
+        Sets a Q-value
+        """
         self.qmap[state[0]][state[1]][action_idx] = qvalue
 
     def get_update_qvalue(self, reward, state, action_idx, nxt_state):
@@ -471,6 +495,11 @@ class Qlearn:
             raise Exception("Invalid q-value index in get_coord_next_max (not in 0:3)")
 
     def is_valid_coord(self, coord):
+        """
+        Determines whether a given coordinate is valid (in the map grid)
+        :param coord: the coordinate to check
+        :return: boolean True or False
+        """
         if coord[0] < 0 or coord[0] > self.w-1:
             return False
         if coord[1] < 0 or coord[1] > self.h-1:
@@ -490,11 +519,14 @@ class Qlearn:
         return num
 
     def check_all_states_nonzero(self):
+        """
+        Checks whether all states have at least one action that is not zero
+        """
         return self.get_num_nonzero_states() == self.w*self.h - 1
 
     def get_optimal_path(self, startcoord, trophycoord):
         """
-        Determine the optimal path per game episode given a starting state
+        Determines the optimal path per game episode given a starting state
         :return: an ordered list of states (coord)
         """
         assert startcoord != trophycoord
@@ -565,11 +597,6 @@ class Qlearn:
         n_optimal = self.get_num_states_optimal_path(trophy_pos)
         return n_optimal / n_total * 100
 
-    def _calc_shortest_dist(self, coord, trophy_pos):
-        d1=abs(trophy_pos[0]-coord[0])
-        d2=abs(trophy_pos[1]-coord[1])
-        return d1+d2
-
     def get_num_play_coords(self, trophy_pos):
         if self.n_play_coords == -1:
             self.n_play_coords = len(self.get_play_coords(trophy_pos))
@@ -588,4 +615,8 @@ class Qlearn:
                     coords.append([j,i])
         return coords
 
-            
+    def _calc_shortest_dist(self, coord, trophy_pos):
+        d1=abs(trophy_pos[0]-coord[0])
+        d2=abs(trophy_pos[1]-coord[1])
+        return d1+d2            
+

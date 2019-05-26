@@ -12,11 +12,11 @@ from sys import argv as arguments
 
 class SnakeTrainer:
     """
-    Class for 
+    Class for training and playing the snake game using Q-learning
     Date: 2019-05-21
     """
 
-    DISPLAY = False # whether to display the game during training (last 10%)
+    DISPLAY = False # whether to display the game during training (last 10% of episodes)
     PATH = 'C:/Dev/logs/'  # ex: C:/Dev/logs/
     Q_LEARNING_FILE = 'q-learning.txt'
 
@@ -25,7 +25,6 @@ class SnakeTrainer:
         Class initializer
         """
         self.qlearn = env.SnakeQlearning(False, self.DISPLAY)
-        self.n_episodes = -1
 
     def train(self, save_qfile=True, save_log=False):
         """
@@ -38,7 +37,7 @@ class SnakeTrainer:
         else:
             qfile = None
 
-        self.n_episodes = self.qlearn.train(qfile)
+        self.qlearn.train(qfile)
 
         if save_log:
             file_name = str.format("rl_gymsnake_{0}.log", time.strftime('%Y%m%d_%H%M%S'))
@@ -46,9 +45,8 @@ class SnakeTrainer:
 
     def display_training_result(self):
         """
+        Displays the training results as text and a plot
         """
-        #app.display_qvalues()
-
         if not self.qlearn.q.check_all_states_nonzero():
             print("Training did not succeed. All states are not non zero.")
 
@@ -61,7 +59,7 @@ class SnakeTrainer:
                 print("Unable to determine best path from snake to trophy.")
                 print(e)
 
-            print("Finished game level after {0} training episodes".format(self.n_episodes))
+            print("Finished game level after 1 training episodes")
 
         self.qlearn.plot_training_scores()
 
@@ -82,16 +80,14 @@ if __name__ == "__main__":
     
     if "-t" in arguments:
         # train / learn
-        app.train()
+        app.train(True, False)
         end = time.time()
         app.display_training_result()
         print("Total train duration:{0} seconds" .format(round(end - start, 3)))
     elif "-r" in arguments:
+        # replay
         app.replay()
-    elif "-m" in arguments:
-        # manual human play
-        print("TODO: manual play")
     else:
-        print("Enter an argument: -t or -r or -m")
+        print("Enter an argument: -t or -r")
 
 

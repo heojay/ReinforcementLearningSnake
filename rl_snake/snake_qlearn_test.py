@@ -6,11 +6,19 @@ import snake_qlearn as env
 
 
 def test_1():
-    pass
+        pass
 
 def test_constr():
         app = env.SnakeQlearning()
         assert isinstance(app, env.SnakeQlearning)
+
+def test_get_new_snake_start_coord():
+        app = env.SnakeQlearning()
+        app.play_initgame()
+        s = app.snake
+        coord = app.get_new_snake_start_coord()
+        assert app.q.is_valid_coord(coord)
+        assert not np.array_equal(s, coord)
 
 def test_get_direction_to_coord():
         app = env.SnakeQlearning()
@@ -25,8 +33,6 @@ width=15 # set equal to tested class
 height=15 # set equal to tested class
 lr=0.5
 disc=0.8
-expl=1.0
-reward=0
 
 def test_Qlearn_constr():
         q = _get_a_Qlearn()
@@ -35,8 +41,6 @@ def test_Qlearn_constr():
         assert q.h == height
         assert q.lr == lr
         assert q.disc == disc
-        assert q.expl == expl
-        assert q.reward == reward
         assert q.qmap
 
 def test_Qlearn_qmap():
@@ -194,7 +198,7 @@ def test_Qlearn_calc_shortest_dist():
 
 # private methods
 def _get_a_Qlearn():
-        return env.Qlearn(width, height, lr, disc, expl, reward)
+        return env.Qlearn(width, height, lr, disc)
 
 def _get_modified_Qlearn():
         q = _get_a_Qlearn()
