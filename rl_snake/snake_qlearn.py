@@ -3,9 +3,9 @@
 # Uses a modified verson of the OpenAI gym from
 #   https://github.com/grantsrb/Gym-Snake
 # This is a blind version Q-learning version
-# Note that this only works for one food goal
+# This version workds for mutiple game levels
 # In this version the snake starting position is random
-# In this version the trophy position is controlled
+# In this version the trophy positions are pre-set
 
 import gym
 import gym_snake
@@ -321,6 +321,7 @@ class SnakeQlearning:
         """
         for level in range(1, self.num_game_levels+1):
             if level==1:
+                # consider checking minimum dist from trophy to make interesting
                 start = self.get_new_snake_start_coord(True)
             else:
                 start = self.TROPHY_POSITIONS[level-2] # get the position of trophy from previous level

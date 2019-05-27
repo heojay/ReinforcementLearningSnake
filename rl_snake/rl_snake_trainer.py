@@ -66,7 +66,7 @@ class SnakeTrainer:
         """
         Plays back the optimal paths from previous training
         """
-        frame_speed = 0.3
+        frame_speed = 0.2
         path = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE_PREFIX)
         self.qlearn.replay(path, frame_speed)
         #start_positions = [] # use randomly created starting positions for the snake
