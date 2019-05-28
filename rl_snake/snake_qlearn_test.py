@@ -27,6 +27,15 @@ def test_get_direction_to_coord():
         assert app.get_direction_to_coord([0,3], [0,4]) == 2 # app.snake.DOWN
         assert app.get_direction_to_coord([0,4], [0,3]) == 0 # app.snake.UP
 
+def test_get_level_trophy():
+        app = env.SnakeQlearning()
+        app.TROPHY_POSITIONS = [[1,2], [3,4]]
+        assert app.get_level_trophy(1) == [1,2]
+        assert app.get_level_trophy(2) == [3,4]
+        assert app.get_level_trophy(3) == [1,2]
+        assert app.get_level_trophy(4) == [3,4]
+
+
 
 ## Test Qlearn
 width=15 # set equal to tested class
@@ -134,13 +143,21 @@ def test_Qlearn_is_valid_coord():
         assert q.is_valid_coord([width,1]) == False
         assert q.is_valid_coord([9,height]) == False
 
-def test_Qlearn_get_play_coords():
+def test_Qlearn_get_play_coords_all():
     app = env.SnakeQlearning()
     app.play_initgame()
-    states = app.q.get_play_coords(app.trophy_pos)
+    exclude_wall_states = False
+    states = app.q.get_play_coords(app.trophy_pos, exclude_wall_states)
     print(states)
-    assert len(states) == (width*height) - (2*width+2*height-4) - 1
-    #assert False, "Fake assert to make PyTest output prints"
+    assert len(states) == (width*height) - 1
+
+def test_Qlearn_get_play_coords_exclude_wall_states():
+    app = env.SnakeQlearning()
+    app.play_initgame()
+    exclude_wall_states = True
+    states = app.q.get_play_coords(app.trophy_pos, exclude_wall_states)
+    print(states)
+    assert len(states) == (width-2) * (height-2) - 1
 
 def test_Qlearn_loop_play_states():
     app = env.SnakeQlearning()
@@ -173,6 +190,9 @@ def test_Qlearn_calc_current_score():
     assert score < 100
 
 def test_Qlearn_get_num_states_optimal_path():
+    """
+    This test will fail if the Q-table is not already trained.
+    """
     app = env.SnakeQlearning()
     app.play_initgame()
     q = _get_a_Qlearn()
