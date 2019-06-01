@@ -16,28 +16,30 @@ class SnakeTrainer:
     Date: 2019-05-21
     """
 
+    N_LEVELS = 13 # the number of game levels to train and play, from level 1
     DISPLAY = False # whether to display the game during training (last 10% of episodes)
     PATH = 'C:/Dev/logs/'  # ex: C:/Dev/logs/
-    Q_LEARNING_FILE = 'q-learning.txt'
+    Q_LEARNING_FILE_PREFIX = 'q-learning' # prefix to files containing Q-values
 
     def __init__(self):
         """
         Class initializer
         """
-        self.qlearn = env.SnakeQlearning(False, self.DISPLAY)
+        self.qlearn = env.SnakeQlearning(False, self.DISPLAY, self.N_LEVELS)
 
-    def train(self, save_qfile=True, save_log=False):
+    def train(self, save_qfile=True, save_log=False, train_from_level=1):
         """
         Trains the snake game using Q-learning
         :param save_qfile: whether to save a qdata file
         :param save_log: whether to save a rolling log file
+        :param train_from_level: the game level to begin training from
         """
         if save_qfile:
-            qfile = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE)
+            qfile = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE_PREFIX)
         else:
             qfile = None
 
-        self.qlearn.train(qfile)
+        self.qlearn.train(qfile, train_from_level)
 
         if save_log:
             file_name = str.format("rl_gymsnake_{0}.log", time.strftime('%Y%m%d_%H%M%S'))
@@ -47,10 +49,11 @@ class SnakeTrainer:
         """
         Displays the training results as text and a plot
         """
-        if not self.qlearn.q.check_all_states_nonzero():
+        all_states_nonzero = self.qlearn.q.check_all_states_nonzero()
+        if not all_states_nonzero:
             print("Training did not succeed. All states are not non zero.")
 
-        if self.qlearn.q.check_all_states_nonzero():
+        if all_states_nonzero:
             print("Now verifying the training using all states")    
             try:
                 invalid_states = self.qlearn.q.verify_all_states(self.qlearn.gl_metrics['trophy'])
@@ -59,17 +62,17 @@ class SnakeTrainer:
                 print("Unable to determine best path from snake to trophy.")
                 print(e)
 
-            print("Finished game level after 1 training episodes")
-
         self.qlearn.plot_training_scores()
 
     def replay(self):
         """
         Plays back the optimal paths from previous training
         """
-        start_coord = None
-        frame_speed = 0.3
-        self.qlearn.replay(str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE), start_coord, frame_speed)
+        frame_speed = 0.1
+        path = str.format("{0}{1}", self.PATH, self.Q_LEARNING_FILE_PREFIX)
+        self.qlearn.replay(path, frame_speed)
+        #start_positions = [] # use randomly created starting positions for the snake
+        #self.qlearn.replay_level(path, start_positions, frame_speed, 2)
 
 
 
@@ -80,7 +83,8 @@ if __name__ == "__main__":
     
     if "-t" in arguments:
         # train / learn
-        app.train(True, False)
+        train_from_level = 13
+        app.train(True, True, train_from_level)
         end = time.time()
         app.display_training_result()
         print("Total train duration:{0} seconds" .format(round(end - start, 3)))
